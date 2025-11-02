@@ -1,13 +1,27 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { AuthService } from '@/services/auth-service';
-import { cookies } from 'next/headers';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // 从cookie中获取令牌
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
+    // 从请求头中获取cookie
+    const cookieHeader = request.headers.get('cookie');
+    if (!cookieHeader) {
+      return NextResponse.json(
+        { error: '未提供认证令牌' }, 
+        { status: 401 }
+      );
+    }
+    
+    // 从cookie头中解析auth-token
+    const cookies = cookieHeader.split(';').map(cookie => cookie.trim());
+    let token = null;
+    for (const cookie of cookies) {
+      if (cookie.startsWith('auth-token=')) {
+        token = cookie.substring('auth-token='.length);
+        break;
+      }
+    }
     
     if (!token) {
       return NextResponse.json(

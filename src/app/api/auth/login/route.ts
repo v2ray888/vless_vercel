@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7天
       path: '/',
       sameSite: 'lax',
-      domain: process.env.NODE_ENV === 'production' ? '.yourdomain.com' : undefined,
+      // 移除domain设置，让浏览器自动使用当前域名
     });
     
     return response;
