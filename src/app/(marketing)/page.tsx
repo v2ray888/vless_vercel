@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -12,6 +14,9 @@ import {
 } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
 import { placeholderImages } from '@/lib/placeholder-images';
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 const features = [
   {
@@ -69,7 +74,25 @@ const pricingTiers = [
 ];
 
 export default function Home() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const heroImage = placeholderImages.find(p => p.id === 'hero-network');
+
+  const handleGetStarted = () => {
+    if (user) {
+      // 如果用户已登录，跳转到仪表板
+      router.push('/dashboard');
+    } else {
+      // 如果用户未登录，跳转到登录页面
+      router.push('/auth/login');
+    }
+  };
 
   return (
     <div className="flex flex-col">
@@ -86,8 +109,14 @@ export default function Home() {
               <Button asChild size="lg" className="font-headline">
                 <Link href="#pricing">选择套餐</Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="font-headline">
-                <Link href="/auth/login">开始使用</Link>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="font-headline"
+                onClick={handleGetStarted}
+                disabled={loading && isClient}
+              >
+                {loading && isClient ? '加载中...' : '开始使用'}
               </Button>
             </div>
           </div>
