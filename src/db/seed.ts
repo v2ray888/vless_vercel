@@ -1,0 +1,176 @@
+import 'dotenv/config';
+import { getDb } from './index';
+import * as schema from './schema';
+import {
+  mockUsers,
+  mockPlans,
+  mockServerGroups,
+  mockOrders,
+  mockRedemptionCodes,
+  mockAnnouncements,
+  mockTutorials,
+  mockAffiliates,
+} from '../lib/data';
+import bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
+import { sql } from 'drizzle-orm';
+
+async function seed() {
+  const db = getDb();
+  console.log('Seeding database...');
+
+  // Clear existing data in the correct order to avoid foreign key violations
+  await db.delete(schema.withdrawals);
+  await db.delete(schema.settings);
+  await db.delete(schema.orders);
+  await db.delete(schema.redemptionCodes);
+  await db.delete(schema.affiliates);
+  await db.delete(schema.users);
+  await db.delete(schema.plans);
+  await db.delete(schema.serverGroups);
+  await db.delete(schema.announcements);
+  await db.delete(schema.tutorials);
+  
+  console.log('Cleared existing data.');
+
+  // Ensure admin email from .env is included in the mock users if not already present
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
+  if (!mockUsers.some(u => u.email === adminEmail)) {
+    mockUsers.unshift({
+        id: 'usr_admin',
+        name: 'Admin',
+        email: adminEmail,
+        status: 'active',
+        plan: '年度套餐',
+        endDate: '2099-12-31'
+    });
+  }
+
+
+  // Seed Server Groups
+  await db.insert(schema.serverGroups).values(
+    mockServerGroups.map(sg => ({
+      id: sg.id,
+      name: sg.name,
+      apiUrl: sg.api_url,
+      apiKey: sg.api_key,
+      server_count: sg.server_count,
+      nodes: sg.nodes,
+    }))
+  );
+  console.log('Seeded server groups.');
+
+  // Seed Plans
+  const seededPlans = await db.insert(schema.plans).values(
+    mockPlans.map(p => ({
+      id: p.id,
+      name: p.name,
+      price_monthly: p.price_monthly || null,
+      price_quarterly: p.price_quarterly || null,
+      price_yearly: p.price_yearly || null,
+      serverGroupId: mockServerGroups.find(sg => sg.name === p.server_group)!.id,
+      status: p.status,
+    }))
+  ).returning();
+  console.log('Seeded plans.');
+
+  // Seed Users
+  const hashedPassword = await bcrypt.hash('password', 10);
+  const seededUsers = await db.insert(schema.users).values(
+    mockUsers.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      password: hashedPassword,
+      status: u.status,
+      planId: seededPlans.find(p => p.name === u.plan)?.id || null,
+      endDate: u.endDate ? new Date(u.endDate) : null,
+      subscriptionUrlToken: randomBytes(16).toString('hex'),
+    }))
+  ).returning();
+  console.log('Seeded users.');
+  
+  // Seed Orders
+  await db.insert(schema.orders).values(
+    mockOrders.map(o => ({
+      id: o.id,
+      userId: seededUsers.find(u => u.email === o.user_email)!.id,
+      planId: seededPlans.find(p => p.name === o.plan_name)!.id,
+      amount: o.amount,
+      date: new Date(o.date),
+      status: o.status,
+    }))
+  );
+  console.log('Seeded orders.');
+
+  // Seed Redemption Codes
+  await db.insert(schema.redemptionCodes).values(
+    mockRedemptionCodes.map(rc => ({
+        id: rc.id,
+        code: rc.code,
+        planId: seededPlans.find(p => p.name === rc.plan)!.id,
+        status: rc.status,
+        createdAt: new Date(rc.created_at),
+        usedAt: rc.used_at ? new Date(rc.used_at) : null,
+        usedById: rc.used_by ? seededUsers.find(u => u.email === rc.used_by)?.id : null,
+    }))
+  );
+  console.log('Seeded redemption codes.');
+
+  // Seed Announcements
+  await db.insert(schema.announcements).values(
+      mockAnnouncements.map(a => ({
+          id: String(a.id),
+          title: a.title,
+          content: a.content,
+          date: new Date(a.date),
+      }))
+  );
+  console.log('Seeded announcements.');
+
+  // Seed Tutorials
+  await db.insert(schema.tutorials).values(
+      mockTutorials.map(t => ({
+          id: t.id,
+          title: t.title,
+          content: t.content,
+      }))
+  );
+  console.log('Seeded tutorials.');
+
+  // Seed Affiliates
+  const seededAffiliates = await db.insert(schema.affiliates).values(mockAffiliates.map(aff => ({
+    id: aff.id,
+    userId: seededUsers.find(u => u.id === aff.userId)!.id,
+    referralCode: randomBytes(8).toString('hex'),
+    referralCount: aff.referralCount,
+    totalCommission: aff.totalCommission,
+    pendingCommission: aff.pendingCommission,
+  }))).returning();
+  console.log('Seeded affiliates.');
+
+  // Seed Withdrawals
+   await db.insert(schema.withdrawals).values([
+    { id: 'wd_1', affiliateId: seededAffiliates[1].id, amount: 75.50, date: new Date('2024-06-27'), status: 'completed' },
+    { id: 'wd_2', affiliateId: seededAffiliates[0].id, amount: 120.50, date: new Date('2024-07-02'), status: 'pending' },
+  ]);
+  console.log('Seeded withdrawals.');
+
+
+  // Seed default settings
+  await db.insert(schema.settings).values([
+    { key: 'affiliate_commission_rate', value: { value: 20 } },
+    { key: 'site_name', value: { value: 'VLess Manager Pro' } },
+    { key: 'site_url', value: { value: 'https://example.com' } },
+  ]);
+  console.log('Seeded default settings.');
+
+
+  console.log('Database seeding complete!');
+  process.exit(0);
+}
+
+seed().catch((error) => {
+  console.error('Error seeding database:', error);
+  process.exit(1);
+});
