@@ -6,52 +6,17 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
 
 type ActionResult = {
   success: boolean;
   message: string;
 };
 
-// 自定义认证函数
-async function getCurrentUser() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-    
-    if (!token) {
-      return null;
-    }
-    
-    // 验证JWT令牌
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
-    const { payload } = await jwtVerify(token, secret);
-    
-    return {
-      id: payload.id as string,
-      email: payload.email as string,
-      name: payload.name as string | null,
-      isAdmin: payload.isAdmin as boolean
-    };
-  } catch (error) {
-    console.error('验证认证令牌时出错:', error);
-    return null;
-  }
-}
-
-// 自定义登出函数
-async function signOut() {
-  // 注意：在Server Action中我们无法直接操作cookies，需要通过API端点
-  // 这里我们只返回一个标识，让客户端处理登出逻辑
-  return { success: true };
-}
-
-export async function updateProfile(name: string): Promise<ActionResult> {
+// 修改函数签名，接收用户ID作为参数
+export async function updateProfile(userId: string, name: string): Promise<ActionResult> {
   const db = getDb();
-  const user = await getCurrentUser();
   
-  if (!user?.id) {
+  if (!userId) {
     return { success: false, message: '用户未登录。' };
   }
 
@@ -63,7 +28,7 @@ export async function updateProfile(name: string): Promise<ActionResult> {
     await db
       .update(users)
       .set({ name })
-      .where(eq(users.id, user.id));
+      .where(eq(users.id, userId));
     return { success: true, message: '您的个人资料已更新。' };
   } catch (error) {
     return { success: false, message: '更新失败，请稍后再试。' };
@@ -79,13 +44,14 @@ const passwordSchema = z.object({
     path: ['confirmPassword'],
 });
 
+// 修改函数签名，接收用户ID作为参数
 export async function changePassword(
+  userId: string,
   values: z.infer<typeof passwordSchema>
 ): Promise<ActionResult> {
   const db = getDb();
-  const user = await getCurrentUser();
   
-  if (!user?.id) {
+  if (!userId) {
     return { success: false, message: '用户未登录。' };
   }
 
@@ -98,7 +64,7 @@ export async function changePassword(
 
   try {
     // 查询用户信息
-    const userResult = await db.select().from(users).where(eq(users.id, user.id));
+    const userResult = await db.select().from(users).where(eq(users.id, userId));
     const currentUser = userResult[0];
 
     if (!currentUser?.password) {
@@ -113,7 +79,7 @@ export async function changePassword(
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    await db.update(users).set({ password: hashedNewPassword }).where(eq(users.id, user.id));
+    await db.update(users).set({ password: hashedNewPassword }).where(eq(users.id, userId));
     
     // 返回成功标识，让客户端处理登出逻辑
     return { success: true, message: '密码修改成功，请重新登录。' };

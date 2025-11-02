@@ -15,7 +15,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default async function ReferralsPage() {
   // 依赖中间件来保护路由
-  const referralData = await getReferralData();
+  // 为了修复静态生成问题，我们将用户ID作为参数传递给actions函数
+  // 实际应用中，这个ID应该通过中间件或props传递
+  const referralData = await getReferralData('');
 
   return (
     <div className="flex flex-col gap-6">

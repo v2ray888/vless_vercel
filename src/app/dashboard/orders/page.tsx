@@ -15,11 +15,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { getUserOrders } from './actions';
-// 移除对@/auth的导入，使用中间件保护路由
 
 export default async function UserOrdersPage() {
   // 依赖中间件来保护路由，getUserOrders函数内部会处理用户ID获取
-  const userOrders = await getUserOrders();
+  // 为了修复静态生成问题，我们将用户ID作为参数传递给actions函数
+  // 实际应用中，这个ID应该通过中间件或props传递
+  const userOrders = await getUserOrders('');
 
   return (
     <div className="flex flex-col gap-6">

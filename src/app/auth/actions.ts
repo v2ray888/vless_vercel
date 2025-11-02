@@ -60,6 +60,11 @@ export async function login(prevState: { message: string } | undefined, formData
  * @returns 注册结果
  */
 export async function signup(prevState: { message: string } | undefined, formData: FormData) {
+  // 确保只在Node.js环境中运行
+  if (process.env.NEXT_RUNTIME !== 'nodejs') {
+    return { message: '注册功能只能在服务器端使用' };
+  }
+  
   try {
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
@@ -122,7 +127,13 @@ export async function signup(prevState: { message: string } | undefined, formDat
  */
 export async function logout() {
   try {
-    // 重定向到登录页面（客户端会处理cookie清除）
+    // 调用自定义登出API
+    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    
+    // 重定向到登录页面
     redirect('/auth/login');
   } catch (error: any) {
     // 检查是否为NEXT_REDIRECT错误，这是预期的重定向行为

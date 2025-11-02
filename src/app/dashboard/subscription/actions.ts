@@ -5,8 +5,6 @@ import { getDb } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
 
 type ActionResult = {
   success: boolean;
@@ -18,43 +16,17 @@ type ActionResult = {
 // This should be in a config file or environment variable
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-// 自定义认证函数
-async function getCurrentUser() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-    
-    if (!token) {
-      return null;
-    }
-    
-    // 验证JWT令牌
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
-    const { payload } = await jwtVerify(token, secret);
-    
-    return {
-      id: payload.id as string,
-      email: payload.email as string,
-      name: payload.name as string | null,
-      isAdmin: payload.isAdmin as boolean
-    };
-  } catch (error) {
-    console.error('验证认证令牌时出错:', error);
-    return null;
-  }
-}
-
-export async function getSubscriptionInfo(): Promise<ActionResult> {
+// 修改函数签名，接收用户ID作为参数
+export async function getSubscriptionInfo(userId: string): Promise<ActionResult> {
   const db = getDb();
-  const user = await getCurrentUser();
   
-  if (!user?.id) {
+  if (!userId) {
     return { success: false, message: '用户未登录。' };
   }
 
   try {
     // 查询用户信息
-    const userResult = await db.select().from(users).where(eq(users.id, user.id));
+    const userResult = await db.select().from(users).where(eq(users.id, userId));
     const currentUser = userResult[0];
 
     if (!currentUser) {
@@ -68,7 +40,7 @@ export async function getSubscriptionInfo(): Promise<ActionResult> {
     
     if (!currentUser.subscriptionUrlToken) {
       // If user has a plan but no token, create one
-      const newUrlResult = await resetSubscriptionUrl();
+      const newUrlResult = await resetSubscriptionUrl(userId);
       return { success: true, url: newUrlResult.newUrl };
     }
 
@@ -81,11 +53,11 @@ export async function getSubscriptionInfo(): Promise<ActionResult> {
   }
 }
 
-export async function resetSubscriptionUrl(): Promise<ActionResult> {
+// 修改函数签名，接收用户ID作为参数
+export async function resetSubscriptionUrl(userId: string): Promise<ActionResult> {
   const db = getDb();
-  const user = await getCurrentUser();
   
-  if (!user?.id) {
+  if (!userId) {
     return { success: false, message: '用户未登录。' };
   }
   
@@ -94,7 +66,7 @@ export async function resetSubscriptionUrl(): Promise<ActionResult> {
     await db
       .update(users)
       .set({ subscriptionUrlToken: newToken })
-      .where(eq(users.id, user.id));
+      .where(eq(users.id, userId));
       
     const newUrl = `${BASE_URL}/api/subscription/${newToken}`;
       

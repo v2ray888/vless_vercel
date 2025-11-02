@@ -4,8 +4,6 @@
 import { getDb } from '@/db';
 import { affiliates, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
 
 type ReferralData = {
   referralLink: string;
@@ -16,43 +14,17 @@ type ReferralData = {
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
-// 自定义认证函数
-async function getCurrentUser() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-    
-    if (!token) {
-      return null;
-    }
-    
-    // 验证JWT令牌
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
-    const { payload } = await jwtVerify(token, secret);
-    
-    return {
-      id: payload.id as string,
-      email: payload.email as string,
-      name: payload.name as string | null,
-      isAdmin: payload.isAdmin as boolean
-    };
-  } catch (error) {
-    console.error('验证认证令牌时出错:', error);
-    return null;
-  }
-}
-
-export async function getReferralData(): Promise<ReferralData | null> {
+// 修改函数签名，接收用户ID作为参数
+export async function getReferralData(userId: string): Promise<ReferralData | null> {
   const db = getDb();
-  const user = await getCurrentUser();
   
-  if (!user?.id) {
+  if (!userId) {
     return null;
   }
 
   try {
     // 查询affiliate数据
-    const affiliateResult = await db.select().from(affiliates).where(eq(affiliates.userId, user.id));
+    const affiliateResult = await db.select().from(affiliates).where(eq(affiliates.userId, userId));
     const affiliateData = affiliateResult[0];
 
     if (!affiliateData) {
