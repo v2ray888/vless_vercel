@@ -1,109 +1,125 @@
 'use server';
 
 import { getDb } from '@/db';
-import { subscriptions, serverGroups, plans } from '@/db/schema';
-import { eq, and, gte } from 'drizzle-orm';
+import { subscriptions, plans, serverGroups } from '@/db/schema';
+import { 
+  eq, 
+  and, 
+  gte, 
+  lte, 
+  desc,
+  count,
+  sum
+} from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addV2RayUUID } from '@/lib/v2ray-api';
+import { validateV2RayUUID, addV2RayUUID } from '@/lib/v2ray-api';
+import { getBaseUrl } from '@/lib/url-utils';
 
-// 创建订阅的验证模式
-const createSubscriptionSchema = z.object({
-  userId: z.string().min(1, '用户ID不能为空。'),
-  planId: z.string().min(1, '套餐ID不能为空。'),
-  trafficTotal: z.number().min(0, '总流量不能为负数。'),
-  durationDays: z.number().min(1, '订阅时长必须至少为1天。'),
-});
-
-// 生成订阅地址的验证模式
 const generateSubscriptionUrlSchema = z.object({
-  subscriptionId: z.string().min(1, '订阅ID不能为空。'),
+  subscriptionId: z.string().min(1, '订阅ID是必填项'),
 });
+
+type ActionResult = {
+  success: boolean;
+  message?: string;
+};
 
 /**
  * 创建新订阅
  * @param userId 用户ID
  * @param planId 套餐ID
- * @param trafficTotal 总流量（bytes）
- * @param durationDays 订阅时长（天）
- * @returns 订阅ID
+ * @param userUUID 用户UUID
+ * @returns 创建结果
  */
 export async function createSubscription(
-  userId: string,
-  planId: string,
-  trafficTotal: number,
-  durationDays: number
-) {
-  // 验证输入参数
-  const validatedFields = createSubscriptionSchema.safeParse({
-    userId,
-    planId,
-    trafficTotal,
-    durationDays,
-  });
-
-  if (!validatedFields.success) {
-    throw new Error(
-      validatedFields.error.flatten().fieldErrors.userId?.[0] ||
-      validatedFields.error.flatten().fieldErrors.planId?.[0] ||
-      validatedFields.error.flatten().fieldErrors.trafficTotal?.[0] ||
-      validatedFields.error.flatten().fieldErrors.durationDays?.[0] ||
-      '输入无效。'
-    );
-  }
-
+  userId: string, 
+  planId: string, 
+  userUUID: string
+): Promise<ActionResult> {
   const db = getDb();
   
-  // 生成UUID和订阅令牌
-  const userUUID = crypto.randomUUID();
-  const subscriptionToken = crypto.randomUUID();
-  
-  // 计算过期时间
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + durationDays);
-  
-  // 获取套餐信息
-  const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
-  if (!plan) {
-    throw new Error('未找到指定套餐。');
-  }
-  
-  // 获取服务器组信息
-  const [serverGroup] = await db.select().from(serverGroups).where(eq(serverGroups.id, plan.serverGroupId)).limit(1);
-  if (!serverGroup) {
-    throw new Error('未找到关联服务器组。');
-  }
-  
-  // 如果服务器组配置了API信息，则创建V2Ray用户
-  if (serverGroup.apiUrl && serverGroup.apiKey) {
-    const result = await addV2RayUUID(
-      {
-        apiUrl: serverGroup.apiUrl,
-        apiKey: serverGroup.apiKey
-      },
-      userUUID
-    );
-    
-    if (!result.success) {
-      throw new Error(result.message || '添加V2Ray UUID失败。');
+  try {
+    // 获取套餐信息
+    const [plan] = await db.select().from(plans).where(eq(plans.id, planId)).limit(1);
+    if (!plan) {
+      return { success: false, message: '套餐不存在。' };
     }
+    
+    // 获取服务器组信息
+    const [serverGroup] = await db.select().from(serverGroups).where(eq(serverGroups.id, plan.serverGroupId)).limit(1);
+    if (!serverGroup) {
+      return { success: false, message: '服务器组不存在。' };
+    }
+    
+    // 计算过期时间
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + plan.durationDays);
+    
+    // 生成订阅令牌
+    const subscriptionToken = require('crypto').randomBytes(32).toString('hex');
+    
+    // 创建订阅
+    await db.insert(subscriptions).values({
+      userId,
+      planId,
+      userUUID,
+      subscriptionToken,
+      status: 'active',
+      trafficTotal: plan.trafficLimit * 1024 * 1024 * 1024, // GB转为bytes
+      trafficUsed: 0,
+      createdAt: startDate,
+      expiresAt: endDate,
+      planName: plan.name
+    });
+    
+    // 如果服务器组配置了API信息，则添加UUID到V2Ray面板
+    if (serverGroup.apiUrl && serverGroup.apiKey) {
+      try {
+        await addV2RayUUID(
+          {
+            apiUrl: serverGroup.apiUrl,
+            apiKey: serverGroup.apiKey
+          },
+          userUUID
+        );
+      } catch (error) {
+        console.error('添加UUID到V2Ray面板失败:', error);
+        // 不返回错误，因为订阅已经创建成功
+      }
+    }
+    
+    revalidatePath('/dashboard/subscriptions');
+    return { success: true, message: '订阅创建成功。' };
+  } catch (error) {
+    console.error('创建订阅失败:', error);
+    return { success: false, message: '创建订阅失败。' };
   }
-  
-  // 创建订阅记录
-  const result = await db.insert(subscriptions).values({
-    userId,
-    planId,
-    userUUID,
-    subscriptionToken,
-    expiresAt,
-    trafficTotal,
-    trafficUsed: 0,
-    status: 'active',
-  }).returning({ id: subscriptions.id });
+}
 
-  revalidatePath('/dashboard/subscription');
+/**
+ * 获取用户的所有订阅
+ * @param userId 用户ID
+ * @returns 订阅列表
+ */
+export async function getUserSubscriptions(userId: string) {
+  const db = getDb();
   
-  return result[0].id;
+  const result = await db.select({
+    id: subscriptions.id,
+    planName: subscriptions.planName,
+    status: subscriptions.status,
+    createdAt: subscriptions.createdAt,
+    expiresAt: subscriptions.expiresAt,
+    trafficTotal: subscriptions.trafficTotal,
+    trafficUsed: subscriptions.trafficUsed,
+  })
+  .from(subscriptions)
+  .where(eq(subscriptions.userId, userId))
+  .orderBy(desc(subscriptions.createdAt));
+  
+  return result;
 }
 
 /**
@@ -154,7 +170,7 @@ export async function generateSubscriptionUrl(subscriptionId: string) {
   }
   
   // 生成订阅地址
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+  const baseUrl = getBaseUrl();
   return `${baseUrl}/api/subscribe?token=${subscription.subscriptionToken}`;
 }
 
@@ -194,23 +210,75 @@ export async function suspendSubscription(subscriptionId: string) {
 export async function resumeSubscription(subscriptionId: string) {
   const db = getDb();
   
-  // 检查订阅是否仍然有效
-  const [subscription] = await db.select({
-    expiresAt: subscriptions.expiresAt
-  }).from(subscriptions).where(eq(subscriptions.id, subscriptionId)).limit(1);
-  
-  if (!subscription) {
-    throw new Error('未找到订阅信息。');
-  }
-  
-  // 如果订阅已过期，则不能恢复
-  if (subscription.expiresAt < new Date()) {
-    throw new Error('订阅已过期，无法恢复。');
-  }
-  
   await db.update(subscriptions).set({
     status: 'active'
   }).where(eq(subscriptions.id, subscriptionId));
   
   revalidatePath('/dashboard/subscription');
+}
+
+/**
+ * 取消订阅
+ * @param subscriptionId 订阅ID
+ */
+export async function cancelSubscription(subscriptionId: string) {
+  const db = getDb();
+  
+  await db.update(subscriptions).set({
+    status: 'cancelled'
+  }).where(eq(subscriptions.id, subscriptionId));
+  
+  revalidatePath('/dashboard/subscription');
+}
+
+/**
+ * 删除订阅
+ * @param subscriptionId 订阅ID
+ */
+export async function deleteSubscription(subscriptionId: string) {
+  const db = getDb();
+  
+  await db.delete(subscriptions).where(eq(subscriptions.id, subscriptionId));
+  
+  revalidatePath('/dashboard/subscriptions');
+}
+
+/**
+ * 获取订阅统计信息
+ * @param userId 用户ID
+ * @returns 订阅统计信息
+ */
+export async function getSubscriptionStats(userId: string) {
+  const db = getDb();
+  
+  // 获取总订阅数
+  const [totalResult] = await db.select({ count: count() })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId));
+  
+  // 获取活跃订阅数
+  const [activeResult] = await db.select({ count: count() })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.userId, userId),
+        eq(subscriptions.status, 'active'),
+        gte(subscriptions.expiresAt, new Date())
+      )
+    );
+  
+  // 获取总流量使用情况
+  const [trafficResult] = await db.select({ 
+    total: sum(subscriptions.trafficTotal),
+    used: sum(subscriptions.trafficUsed)
+  })
+  .from(subscriptions)
+  .where(eq(subscriptions.userId, userId));
+  
+  return {
+    total: totalResult.count,
+    active: activeResult.count,
+    trafficTotal: parseInt(trafficResult.total as string) || 0,
+    trafficUsed: parseInt(trafficResult.used as string) || 0,
+  };
 }

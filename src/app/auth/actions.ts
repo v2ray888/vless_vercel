@@ -6,6 +6,7 @@ import { getDb } from '@/db/index';
 import { users, affiliates } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { getBaseUrl } from '@/lib/url-utils';
 
 /**
  * 登录函数
@@ -24,7 +25,8 @@ export async function login(prevState: { message: string } | undefined, formData
     }
     
     // 调用自定义认证API
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/login`, {
+    const baseUrl = getBaseUrl();
+    const response = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -60,45 +62,31 @@ export async function login(prevState: { message: string } | undefined, formData
  * @returns 注册结果
  */
 export async function signup(prevState: { message: string } | undefined, formData: FormData) {
-  // 确保只在Node.js环境中运行
-  if (process.env.NEXT_RUNTIME !== 'nodejs') {
-    return { message: '注册功能只能在服务器端使用' };
-  }
-  
   try {
     const name = formData.get('name') as string;
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
-    const confirmPassword = formData.get('confirmPassword') as string;
     const refCode = formData.get('ref') as string;
     
     // 验证输入
-    if (!name || !email || !password || !confirmPassword) {
-      return { message: '所有字段都是必填项' };
+    if (!name || !email || !password) {
+      return { message: '姓名、邮箱和密码是必填项' };
     }
     
-    if (password !== confirmPassword) {
-      return { message: '密码和确认密码不匹配' };
-    }
-    
-    if (password.length < 6) {
-      return { message: '密码至少需要6位字符' };
-    }
-    
-    // 获取数据库实例
     const db = getDb();
     
     // 检查邮箱是否已存在
-    const existingUser = await db.select().from(users).where(eq(users.email, email));
-    if (existingUser.length > 0) {
+    const existingUsers = await db.select().from(users).where(eq(users.email, email));
+    if (existingUsers.length > 0) {
       return { message: '该邮箱已被注册' };
     }
     
-    // 查找推荐人ID（如果提供了推荐码）
     let referredById = null;
     if (refCode) {
-      const [referrer] = await db.select({ id: users.id }).from(users)
-        .innerJoin(affiliates, eq(users.id, affiliates.userId))
+      // 查找推荐人
+      const [referrer] = await db
+        .select({ id: affiliates.id })
+        .from(affiliates)
         .where(eq(affiliates.referralCode, refCode));
       
       if (referrer) {
@@ -140,7 +128,8 @@ export async function signup(prevState: { message: string } | undefined, formDat
 export async function logout() {
   try {
     // 调用自定义登出API
-    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/logout`, {
+    const baseUrl = getBaseUrl();
+    await fetch(`${baseUrl}/api/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     });

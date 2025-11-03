@@ -5,6 +5,7 @@ import { getDb } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
+import { getBaseUrl } from '@/lib/url-utils';
 
 type ActionResult = {
   success: boolean;
@@ -12,32 +13,6 @@ type ActionResult = {
   url?: string | null;
   newUrl?: string | null;
 };
-
-// 改进BASE_URL的获取逻辑，支持多种环境变量和自动检测
-function getBaseUrl(): string {
-  // 首先检查NEXT_PUBLIC_SITE_URL环境变量
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL;
-  }
-  
-  // 检查VERCEL_URL环境变量（Vercel部署环境）
-  if (process.env.VERCEL_URL) {
-    return `https://${process.env.VERCEL_URL}`;
-  }
-  
-  // 检查HOST和PORT环境变量
-  if (process.env.HOST && process.env.PORT) {
-    return `http://${process.env.HOST}:${process.env.PORT}`;
-  }
-  
-  // 检查NEXT_PUBLIC_PORT环境变量
-  if (process.env.NEXT_PUBLIC_PORT) {
-    return `http://localhost:${process.env.NEXT_PUBLIC_PORT}`;
-  }
-  
-  // 默认值
-  return 'http://localhost:3000';
-}
 
 // 修改函数签名，接收用户ID作为参数
 export async function getSubscriptionInfo(userId: string): Promise<ActionResult> {

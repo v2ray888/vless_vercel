@@ -4,6 +4,7 @@
 import { getDb } from '@/db';
 import { affiliates, users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
+import { getBaseUrl } from '@/lib/url-utils';
 
 type ReferralData = {
   referralLink: string;
@@ -11,8 +12,6 @@ type ReferralData = {
   totalCommission: number;
   pendingCommission: number;
 };
-
-const BASE_URL = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
 // 生成唯一的推荐码
 function generateReferralCode(): string {
@@ -55,8 +54,9 @@ export async function getReferralData(userId: string): Promise<ReferralData | nu
       affiliateData = newAffiliate[0];
     }
 
+    const baseUrl = getBaseUrl();
     return {
-      referralLink: `${BASE_URL}/auth/signup?ref=${affiliateData.referralCode}`,
+      referralLink: `${baseUrl}/auth/signup?ref=${affiliateData.referralCode}`,
       referralCount: affiliateData.referralCount,
       totalCommission: affiliateData.totalCommission,
       pendingCommission: affiliateData.pendingCommission,
