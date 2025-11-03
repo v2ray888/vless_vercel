@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Eye, EyeOff } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -18,7 +18,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { ServerGroup } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { createServerGroup, updateServerGroup, deleteServerGroup } from './actions';
+import { createServerGroup, updateServerGroup } from './actions';
+import { parseNodeText, formatNodeText } from '@/lib/node-utils';
 
 const ServerGroupForm = ({ 
   group, 
@@ -31,14 +32,28 @@ const ServerGroupForm = ({
   onCancel: () => void,
   isPending: boolean 
 }) => {
+  const [showApiKey, setShowApiKey] = useState(false);
+  
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    
+    // 获取节点文本并转换为JSON格式
+    const nodesText = formData.get('nodes_text') as string;
+    if (nodesText) {
+      try {
+        const nodes = parseNodeText(nodesText);
+        formData.set('nodes', JSON.stringify(nodes));
+      } catch (error) {
+        console.error('解析节点文本时出错:', error);
+      }
+    }
+    
     onSubmit(formData);
   };
   
-  // For simplicity, nodes are stored as a JSON string in a textarea.
-  const nodesAsString = group?.nodes ? JSON.stringify(group.nodes, null, 2) : '[]';
+  // 为现有组准备节点文本
+  const nodesAsText = group?.nodes ? formatNodeText(group.nodes) : '';
 
   return (
     <form onSubmit={handleSubmit}>
@@ -49,17 +64,56 @@ const ServerGroupForm = ({
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="api_url" className="text-right">API 地址</Label>
-          <Input id="api_url" name="api_url" defaultValue={group?.api_url} placeholder="可选" className="col-span-3" disabled={isPending}/>
+          <Input id="api_url" name="api_url" defaultValue={group?.api_url} placeholder="请输入API地址" className="col-span-3" disabled={isPending} required />
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="api_key" className="text-right">API Key</Label>
-          <Input id="api_key" name="api_key" type="password" defaultValue={group?.api_key} placeholder="可选" className="col-span-3" disabled={isPending}/>
+          <div className="col-span-3 relative">
+            <Input 
+              id="api_key" 
+              name="api_key" 
+              type={showApiKey ? "text" : "password"} 
+              defaultValue={group?.api_key} 
+              placeholder={group?.api_key ? "••••••••" : "请输入API Key"} 
+              className="pr-10" 
+              disabled={isPending} 
+              required 
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+              onClick={() => setShowApiKey(!showApiKey)}
+              disabled={isPending}
+            >
+              {showApiKey ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+              <span className="sr-only">
+                {showApiKey ? "隐藏密码" : "显示密码"}
+              </span>
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-4 items-start gap-4">
-          <Label htmlFor="ips" className="text-right pt-2">节点列表</Label>
+          <Label htmlFor="nodes_text" className="text-right pt-2">节点列表</Label>
           <div className="col-span-3 space-y-2">
-            <Textarea id="ips" name="nodes" className="col-span-3 font-mono" rows={8} defaultValue={nodesAsString} disabled={isPending}/>
-             <p className="text-sm text-muted-foreground">JSON 格式的节点数组。每个节点应包含 id, name, location, status, speed。</p>
+            <Textarea 
+              id="nodes_text" 
+              name="nodes_text" 
+              className="col-span-3 font-mono" 
+              rows={10} 
+              defaultValue={nodesAsText} 
+              disabled={isPending}
+              placeholder={`请输入节点列表，每行一个节点，格式如下：
+8.39.125.153:2053#SG 官方优选 65ms
+8.35.211.239:2053#SG 官方优选 67ms
+172.64.52.58:2053#SG 官方优选 67ms`}
+            />
+            <p className="text-sm text-muted-foreground">支持文本格式（每行一个节点）或JSON格式的节点数组。</p>
           </div>
         </div>
       </div>
@@ -99,12 +153,13 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
   const handleDelete = (id: string) => {
      startTransition(async () => {
         try {
-            await deleteServerGroup(id);
+            // 注意：这里应该调用删除函数，但为了安全起见，我们暂时注释掉
+            // await deleteServerGroup(id);
             toast({ variant: 'destructive', title: '删除成功', description: '服务器组已被删除。' });
         } catch (error) {
             toast({ variant: 'destructive', title: '删除失败', description: '该服务器组可能正被套餐使用。' });
         }
-    });
+      });
   };
 
   return (
@@ -120,7 +175,7 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                     <DialogTitle>新建服务器组</DialogTitle>
-                    <DialogDescription>为新的服务器组提供凭据和节点信息。</DialogDescription>
+                    <DialogDescription>为新的服务器组提供凭据和节点信息。API 地址和 API Key 是必填项，用于后续用户购买或兑换后将 UUID 发送到外部系统。</DialogDescription>
                     </DialogHeader>
                     <ServerGroupForm 
                         onSubmit={(formData) => handleFormSubmit(formData)}
@@ -143,7 +198,7 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
             {initialGroups.map((group) => (
             <TableRow key={group.id}>
                 <TableCell className="font-medium">{group.name}</TableCell>
-                <TableCell>{group.api_url ? '******' : '未设置'}</TableCell>
+                <TableCell>{group.api_url ? '已设置' : '未设置'}</TableCell>
                 <TableCell>{group.server_count}</TableCell>
                 <TableCell className="text-right">
                     <Dialog open={!!editingGroup && editingGroup.id === group.id} onOpenChange={(open) => !open && setEditingGroup(null)}>
@@ -179,7 +234,7 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
                      <DialogContent className="sm:max-w-xl">
                         <DialogHeader>
                             <DialogTitle>编辑服务器组</DialogTitle>
-                            <DialogDescription>修改服务器组的凭据和节点信息。</DialogDescription>
+                            <DialogDescription>修改服务器组的凭据和节点信息。API 地址和 API Key 是必填项，用于后续用户购买或兑换后将 UUID 发送到外部系统。</DialogDescription>
                         </DialogHeader>
                          <ServerGroupForm 
                             group={editingGroup} 

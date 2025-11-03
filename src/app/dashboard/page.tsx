@@ -17,6 +17,34 @@ import { useEffect, useState } from 'react';
 import type { Announcement } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Gift, ShoppingCart } from 'lucide-react';
+
+// 添加无订阅卡片组件
+function NoSubscriptionCard() {
+  return (
+    <div className="flex flex-col items-center justify-center text-center gap-4 bg-muted/50 p-8 rounded-lg">
+      <Gift className="w-12 h-12 text-primary" />
+      <h3 className="text-xl font-semibold font-headline">您还没有有效的订阅</h3>
+      <p className="text-muted-foreground">
+        请先购买套餐或使用兑换码来激活您的订阅。
+      </p>
+      <div className="flex gap-4 mt-2">
+        <Button asChild>
+          <Link href="/#pricing">
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            选择套餐
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/redeem">
+            <Gift className="mr-2 h-4 w-4" />
+            使用兑换码
+          </Link>
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 // This component fetches client-side, but the page itself can be RSC
 function DashboardContent({
@@ -56,6 +84,11 @@ function DashboardContent({
           </div>
         </div>
       );
+    }
+
+    // 如果用户没有有效的订阅，显示引导卡片
+    if (!subscription.planName || subscription.planName === '无有效订阅') {
+      return <NoSubscriptionCard />;
     }
 
     return (

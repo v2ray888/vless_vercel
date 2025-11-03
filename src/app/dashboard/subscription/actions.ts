@@ -13,8 +13,31 @@ type ActionResult = {
   newUrl?: string | null;
 };
 
-// This should be in a config file or environment variable
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+// 改进BASE_URL的获取逻辑，支持多种环境变量和自动检测
+function getBaseUrl(): string {
+  // 首先检查NEXT_PUBLIC_SITE_URL环境变量
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+  
+  // 检查VERCEL_URL环境变量（Vercel部署环境）
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // 检查HOST和PORT环境变量
+  if (process.env.HOST && process.env.PORT) {
+    return `http://${process.env.HOST}:${process.env.PORT}`;
+  }
+  
+  // 检查NEXT_PUBLIC_PORT环境变量
+  if (process.env.NEXT_PUBLIC_PORT) {
+    return `http://localhost:${process.env.NEXT_PUBLIC_PORT}`;
+  }
+  
+  // 默认值
+  return 'http://localhost:3000';
+}
 
 // 修改函数签名，接收用户ID作为参数
 export async function getSubscriptionInfo(userId: string): Promise<ActionResult> {
@@ -44,9 +67,10 @@ export async function getSubscriptionInfo(userId: string): Promise<ActionResult>
       return { success: true, url: newUrlResult.newUrl };
     }
 
+    const baseUrl = getBaseUrl();
     return {
       success: true,
-      url: `${BASE_URL}/api/subscription/${currentUser.subscriptionUrlToken}`,
+      url: `${baseUrl}/api/subscribe?token=${currentUser.subscriptionUrlToken}`,
     };
   } catch (error) {
     return { success: false, message: '获取订阅信息失败。' };
@@ -68,7 +92,8 @@ export async function resetSubscriptionUrl(userId: string): Promise<ActionResult
       .set({ subscriptionUrlToken: newToken })
       .where(eq(users.id, userId));
       
-    const newUrl = `${BASE_URL}/api/subscription/${newToken}`;
+    const baseUrl = getBaseUrl();
+    const newUrl = `${baseUrl}/api/subscribe?token=${newToken}`;
       
     return { success: true, newUrl: newUrl };
 

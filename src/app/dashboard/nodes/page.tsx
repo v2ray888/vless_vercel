@@ -15,16 +15,35 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { getNodesForUser } from './actions';
+import { cookies } from 'next/headers';
+import { jwtVerify } from 'jose';
+
+// 从JWT令牌中获取用户ID的函数
+async function getUserIdFromToken() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+    
+    if (!token) {
+      return null;
+    }
+    
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
+    const { payload } = await jwtVerify(token, secret);
+    
+    return payload.id as string;
+  } catch (error) {
+    console.error('解析JWT令牌时出错:', error);
+    return null;
+  }
+}
 
 export default async function NodesPage() {
-  // 由于这是服务端组件，我们不能直接使用context
-  // 我们需要通过API调用来获取用户信息
+  // 从JWT令牌中获取当前用户ID
+  const userId = await getUserIdFromToken();
   
-  // 为了修复静态生成问题，我们将用户ID作为参数传递给actions函数
-  // 实际应用中，这个ID应该通过中间件或props传递
-  
-  // 暂时返回空数组，实际应用中应该通过API获取用户ID
-  const nodes = await getNodesForUser('');
+  // 获取用户节点信息
+  const nodes = await getNodesForUser(userId || '');
 
   return (
     <div className="flex flex-col gap-6">

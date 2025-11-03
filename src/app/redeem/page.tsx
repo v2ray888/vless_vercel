@@ -64,7 +64,8 @@ export default function RedeemPage() {
 
       if (result.success) {
         setCode('');
-        router.push('/dashboard'); // Redirect to dashboard on success
+        // Redirect to subscription page on success so user can immediately see their subscription
+        router.push('/dashboard/subscription');
       }
     });
   };

@@ -26,9 +26,19 @@ export async function getUserDashboardData(
     },
   });
 
-  if (!userResult || !userResult.endDate) {
+  // 如果用户不存在或没有订阅计划
+  if (!userResult || !userResult.plan) {
     return {
-      planName: userResult?.plan?.name || '无有效订阅',
+      planName: '无有效订阅',
+      endDate: null,
+      daysRemaining: null,
+    };
+  }
+  
+  // 如果没有结束日期，说明订阅无效
+  if (!userResult.endDate) {
+    return {
+      planName: '无有效订阅',
       endDate: null,
       daysRemaining: null,
     };
@@ -40,8 +50,8 @@ export async function getUserDashboardData(
   const daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 3600 * 24)));
 
   return {
-    planName: userResult.plan?.name || 'N/A',
+    planName: userResult.plan.name,
     endDate: userResult.endDate ? new Date(userResult.endDate).toISOString().split('T')[0] : null,
-    daysRemaining,
+    daysRemaining: daysRemaining > 0 ? daysRemaining : null, // 如果已过期，返回null
   };
 }

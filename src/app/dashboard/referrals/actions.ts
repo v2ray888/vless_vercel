@@ -12,41 +12,98 @@ type ReferralData = {
   pendingCommission: number;
 };
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+
+// 生成唯一的推荐码
+function generateReferralCode(): string {
+  return `REF${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+}
 
 // 修改函数签名，接收用户ID作为参数
 export async function getReferralData(userId: string): Promise<ReferralData | null> {
   const db = getDb();
   
   if (!userId) {
-    return null;
+    return {
+      referralLink: "无法获取用户信息",
+      referralCount: 0,
+      totalCommission: 0,
+      pendingCommission: 0,
+    };
   }
 
   try {
     // 查询affiliate数据
     const affiliateResult = await db.select().from(affiliates).where(eq(affiliates.userId, userId));
-    const affiliateData = affiliateResult[0];
+    let affiliateData = affiliateResult[0];
 
+    // 如果用户还没有推广员档案，自动创建一个
     if (!affiliateData) {
-      // If user is not an affiliate, we can decide to either create a profile
-      // or return null. For now, let's return null.
-      // In a real app, you might auto-create an affiliate profile on first visit.
-      return {
-        referralLink: "您还不是推广员",
+      // 生成唯一的推荐码
+      const referralCode = generateReferralCode();
+
+      // 创建推广员档案
+      const newAffiliate = await db.insert(affiliates).values({
+        id: `affiliate_${userId}`,
+        userId: userId,
+        referralCode: referralCode,
         referralCount: 0,
         totalCommission: 0,
         pendingCommission: 0,
-      };
+      }).returning();
+
+      affiliateData = newAffiliate[0];
     }
 
     return {
-      referralLink: `${BASE_URL}/signup?ref=${affiliateData.referralCode}`,
+      referralLink: `${BASE_URL}/auth/signup?ref=${affiliateData.referralCode}`,
       referralCount: affiliateData.referralCount,
       totalCommission: affiliateData.totalCommission,
       pendingCommission: affiliateData.pendingCommission,
     };
   } catch (error) {
     console.error("Failed to get referral data:", error);
-    return null;
+    return {
+      referralLink: "数据加载失败",
+      referralCount: 0,
+      totalCommission: 0,
+      pendingCommission: 0,
+    };
+  }
+}
+
+// 添加创建推广员档案的函数（保持向后兼容）
+export async function createAffiliateProfile(userId: string): Promise<{ success: boolean; message: string }> {
+  const db = getDb();
+  
+  if (!userId) {
+    return { success: false, message: '用户ID不能为空' };
+  }
+
+  try {
+    // 检查用户是否已存在推广员档案
+    const existingAffiliate = await db.select().from(affiliates).where(eq(affiliates.userId, userId));
+    
+    if (existingAffiliate.length > 0) {
+      return { success: false, message: '您已经是推广员了' };
+    }
+
+    // 生成唯一的推荐码
+    const referralCode = generateReferralCode();
+
+    // 创建推广员档案
+    await db.insert(affiliates).values({
+      id: `affiliate_${userId}`,
+      userId: userId,
+      referralCode: referralCode,
+      referralCount: 0,
+      totalCommission: 0,
+      pendingCommission: 0,
+    });
+
+    return { success: true, message: '推广员档案创建成功' };
+  } catch (error) {
+    console.error("Failed to create affiliate profile:", error);
+    return { success: false, message: '创建推广员档案失败，请稍后再试' };
   }
 }

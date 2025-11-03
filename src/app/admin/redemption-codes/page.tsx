@@ -28,7 +28,9 @@ export default async function AdminRedemptionCodesPage({
 }: {
   searchParams?: { page?: string };
 }) {
-  const currentPage = Number(searchParams?.page) || 1;
+  // 在 Next.js 15 中，searchParams 需要被 await
+  const resolvedSearchParams = await searchParams;
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
   const { codes, totalCount } = await getRedemptionCodes({
     page: currentPage,
     limit: ITEMS_PER_PAGE,

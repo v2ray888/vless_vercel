@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 // 修复导入路径
 import { getDb } from '@/db/index';
-import { users } from '@/db/schema';
+import { users, affiliates } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
@@ -94,6 +94,18 @@ export async function signup(prevState: { message: string } | undefined, formDat
       return { message: '该邮箱已被注册' };
     }
     
+    // 查找推荐人ID（如果提供了推荐码）
+    let referredById = null;
+    if (refCode) {
+      const [referrer] = await db.select({ id: users.id }).from(users)
+        .innerJoin(affiliates, eq(users.id, affiliates.userId))
+        .where(eq(affiliates.referralCode, refCode));
+      
+      if (referrer) {
+        referredById = referrer.id;
+      }
+    }
+    
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -106,7 +118,7 @@ export async function signup(prevState: { message: string } | undefined, formDat
       status: 'active',
       // 注意：users表结构中没有createdAt, updatedAt字段，id字段有默认值函数所以不需要手动设置
       // refBy字段在数据库中是referredById
-      referredById: refCode || null,
+      referredById: referredById,
     }).returning();
     
     if (newUser.length === 0) {

@@ -9,15 +9,42 @@ import {
 import { Input } from '@/components/ui/input';
 import { Copy } from 'lucide-react';
 import { getReferralData } from './actions';
-// 移除对@/auth的导入，使用中间件保护路由
 import { CopyButton } from './copy-button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cookies } from 'next/headers';
+import { jwtVerify } from 'jose';
+import { QRCodeComponent } from './qr-code';
+import { PosterGenerator } from './poster-generator';
+
+// 从JWT令牌中获取用户ID的函数
+async function getUserIdFromToken() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get('auth-token')?.value;
+    
+    if (!token) {
+      return null;
+    }
+    
+    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
+    const { payload } = await jwtVerify(token, secret);
+    
+    return payload.id as string;
+  } catch (error) {
+    console.error('解析JWT令牌时出错:', error);
+    return null;
+  }
+}
 
 export default async function ReferralsPage() {
-  // 依赖中间件来保护路由
-  // 为了修复静态生成问题，我们将用户ID作为参数传递给actions函数
-  // 实际应用中，这个ID应该通过中间件或props传递
-  const referralData = await getReferralData('');
+  // 从JWT令牌中获取当前用户ID
+  const userId = await getUserIdFromToken();
+  
+  // 获取推荐返利数据
+  const referralData = await getReferralData(userId || '');
+
+  // 从推广链接中提取推荐码
+  const referralCode = referralData?.referralLink.split('=')[1] || '';
 
   return (
     <div className="flex flex-col gap-6">
@@ -32,14 +59,25 @@ export default async function ReferralsPage() {
           </CardHeader>
           <CardContent>
             {referralData ? (
-              <div className="flex w-full items-center space-x-2">
-                <Input
-                  type="text"
-                  readOnly
-                  value={referralData.referralLink}
-                  className="font-mono"
-                />
-                <CopyButton textToCopy={referralData.referralLink} />
+              <div className="space-y-4">
+                <div className="flex w-full items-center space-x-2">
+                  <Input
+                    type="text"
+                    readOnly
+                    value={referralData.referralLink}
+                    className="font-mono"
+                  />
+                  <CopyButton textToCopy={referralData.referralLink} />
+                </div>
+                
+                {/* 二维码展示区域 */}
+                <div className="flex flex-col items-center space-y-2 p-4 bg-gray-50 rounded-lg">
+                  <h3 className="text-sm font-medium">推广二维码</h3>
+                  <QRCodeComponent value={referralData.referralLink} size={150} />
+                  <p className="text-xs text-gray-500 text-center">
+                    扫描二维码邀请好友注册
+                  </p>
+                </div>
               </div>
             ) : (
                 <Skeleton className="h-10 w-full" />
@@ -75,6 +113,26 @@ export default async function ReferralsPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* 海报生成区域 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>推广海报</CardTitle>
+          <CardDescription>
+            生成专属推广海报，方便分享给更多好友
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {referralData ? (
+            <PosterGenerator 
+              referralLink={referralData.referralLink} 
+              referralCode={referralCode} 
+            />
+          ) : (
+            <Skeleton className="h-10 w-full" />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

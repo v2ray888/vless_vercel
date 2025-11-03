@@ -40,7 +40,20 @@ export async function getNodesForUser(userId: string): Promise<Node[]> {
     }
 
     // The nodes are stored as JSONB in the serverGroups table.
-    return serverGroup.nodes as Node[];
+    // Ensure we return a proper array of nodes
+    let nodes: Node[] = [];
+    if (typeof serverGroup.nodes === 'string') {
+      try {
+        nodes = JSON.parse(serverGroup.nodes);
+      } catch (e) {
+        console.error('Failed to parse nodes JSON:', e);
+        return [];
+      }
+    } else if (Array.isArray(serverGroup.nodes)) {
+      nodes = serverGroup.nodes as Node[];
+    }
+
+    return nodes;
 
   } catch (error) {
     console.error("Failed to get nodes for user:", error);

@@ -4,25 +4,36 @@ import { SignJWT } from 'jose';
 
 export async function POST(request: Request) {
   try {
+    console.log('Login API called');
+    console.log('Runtime environment:', process.env.NEXT_RUNTIME || 'undefined');
+    
     const { email, password } = await request.json();
     
     // 验证输入
     if (!email || !password) {
+      console.log('Missing email or password');
       return NextResponse.json(
         { error: '邮箱和密码是必填项' }, 
         { status: 400 }
       );
     }
     
+    console.log('Login attempt for:', email);
+    
     // 验证用户凭据
+    console.log('Calling AuthService.validateCredentials...');
     const user = await AuthService.validateCredentials(email, password);
+    console.log('AuthService result:', user ? 'User found' : 'User not found');
     
     if (!user) {
+      console.log('Login failed for user:', email);
       return NextResponse.json(
         { error: '邮箱或密码不正确' }, 
         { status: 401 }
       );
     }
+    
+    console.log('Login successful for user:', email);
     
     // 创建JWT令牌
     const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
@@ -56,6 +67,8 @@ export async function POST(request: Request) {
       sameSite: 'lax',
       // 移除domain设置，让浏览器自动使用当前域名
     });
+    
+    console.log('Auth token set in cookie');
     
     return response;
   } catch (error) {

@@ -17,6 +17,8 @@ import { placeholderImages } from '@/lib/placeholder-images';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+// 导入付款对话框组件
+import { PaymentDialog } from '@/components/payment/payment-dialog';
 
 const features = [
   {
@@ -77,6 +79,9 @@ export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [isClient, setIsClient] = useState(false);
+  // 添加付款对话框状态
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<{name: string, price: string} | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -94,8 +99,37 @@ export default function Home() {
     }
   };
 
+  // 修改套餐购买处理函数
+  const handlePurchase = (tierName: string, tierPrice: string) => {
+    if (user) {
+      // 如果用户已登录，显示付款对话框
+      setSelectedTier({ name: tierName, price: tierPrice });
+      setIsPaymentDialogOpen(true);
+    } else {
+      // 如果用户未登录，跳转到登录页面
+      router.push('/auth/login');
+    }
+  };
+
+  // 处理支付成功
+  const handlePaymentSuccess = () => {
+    // 支付成功后跳转到订阅页面
+    router.push('/dashboard/subscription');
+  };
+
   return (
     <div className="flex flex-col">
+      {/* 添加付款对话框 */}
+      {selectedTier && (
+        <PaymentDialog
+          open={isPaymentDialogOpen}
+          onOpenChange={setIsPaymentDialogOpen}
+          tierName={selectedTier.name}
+          price={selectedTier.price}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+      
       <section className="relative w-full py-20 md:py-32 lg:py-40">
         <div className="container mx-auto max-w-5xl px-4 md:px-6 text-center">
           <div className="max-w-3xl mx-auto">
@@ -206,7 +240,12 @@ export default function Home() {
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full font-headline" variant={tier.isPopular ? 'default' : 'outline'} size="lg">
+                  <Button 
+                    className="w-full font-headline" 
+                    variant={tier.isPopular ? 'default' : 'outline'} 
+                    size="lg"
+                    onClick={() => handlePurchase(tier.name, tier.price)}
+                  >
                     立即购买
                   </Button>
                 </CardFooter>

@@ -1,5 +1,6 @@
 import { pgTable, text, varchar, integer, real, timestamp, jsonb, boolean, pgEnum, primaryKey, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { subscriptions } from './schema/subscriptions';
 
 // Main Application Tables
 export const users = pgTable('users', {
@@ -143,6 +144,7 @@ export const settings = pgTable('settings', {
     value: jsonb('value'),
 });
 
+export { subscriptions } from './schema/subscriptions';
 
 // Relations
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -213,5 +215,16 @@ export const withdrawalsRelations = relations(withdrawals, ({ one }) => ({
   affiliate: one(affiliates, {
     fields: [withdrawals.affiliateId],
     references: [affiliates.id],
+  }),
+}));
+
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(users, {
+    fields: [subscriptions.userId],
+    references: [users.id],
+  }),
+  plan: one(plans, {
+    fields: [subscriptions.planId],
+    references: [plans.id],
   }),
 }));
