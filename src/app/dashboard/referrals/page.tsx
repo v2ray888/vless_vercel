@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -8,40 +10,35 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Copy } from 'lucide-react';
-import { getReferralData } from './actions';
 import { CopyButton } from './copy-button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cookies } from 'next/headers';
-import { jwtVerify } from 'jose';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/contexts/auth-context';
+import { getReferralData } from './actions';
 import { QRCodeComponent } from './qr-code';
 import { PosterGenerator } from './poster-generator';
 
-// 从JWT令牌中获取用户ID的函数
-async function getUserIdFromToken() {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
-    
-    if (!token) {
-      return null;
+export default function ReferralsPage() {
+  const { user } = useAuth();
+  const [referralData, setReferralData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchReferralData() {
+      if (user?.id) {
+        try {
+          const data = await getReferralData(user.id);
+          setReferralData(data);
+        } catch (error) {
+          console.error('获取推广信息失败:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
     }
     
-    const secret = new TextEncoder().encode(process.env.AUTH_SECRET || 'fallback_secret');
-    const { payload } = await jwtVerify(token, secret);
-    
-    return payload.id as string;
-  } catch (error) {
-    console.error('解析JWT令牌时出错:', error);
-    return null;
-  }
-}
-
-export default async function ReferralsPage() {
-  // 从JWT令牌中获取当前用户ID
-  const userId = await getUserIdFromToken();
-  
-  // 获取推荐返利数据
-  const referralData = await getReferralData(userId || '');
+    fetchReferralData();
+  }, [user?.id]);
 
   // 从推广链接中提取推荐码
   const referralCode = referralData?.referralLink.split('=')[1] || '';
@@ -58,7 +55,9 @@ export default async function ReferralsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {referralData ? (
+            {loading ? (
+              <Skeleton className="h-10 w-full" />
+            ) : referralData ? (
               <div className="space-y-4">
                 <div className="flex w-full items-center space-x-2">
                   <Input
@@ -80,7 +79,9 @@ export default async function ReferralsPage() {
                 </div>
               </div>
             ) : (
-                <Skeleton className="h-10 w-full" />
+              <div className="text-center text-muted-foreground">
+                无法加载推广信息
+              </div>
             )}
           </CardContent>
         </Card>
@@ -90,7 +91,13 @@ export default async function ReferralsPage() {
             <CardDescription>您的推广成果概览。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-             {referralData ? (
+            {loading ? (
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+                <Skeleton className="h-5 w-full" />
+              </div>
+            ) : referralData ? (
               <>
                 <div className="flex justify-between">
                   <span>已邀请用户:</span> <span className="font-medium">{referralData.referralCount} 人</span>
@@ -98,17 +105,15 @@ export default async function ReferralsPage() {
                 <div className="flex justify-between">
                   <span>累计佣金:</span> <span className="font-medium">¥{referralData.totalCommission.toFixed(2)}</span>
                 </div>
-                 <div className="flex justify-between">
+                <div className="flex justify-between">
                   <span>待提现佣金:</span> <span className="font-medium">¥{referralData.pendingCommission.toFixed(2)}</span>
                 </div>
                 <Button disabled={referralData.pendingCommission <= 0} className="mt-2">申请提现</Button>
               </>
             ) : (
-                <div className="space-y-2">
-                    <Skeleton className="h-5 w-full" />
-                    <Skeleton className="h-5 w-full" />
-                    <Skeleton className="h-5 w-full" />
-                </div>
+              <div className="text-center text-muted-foreground">
+                无法加载推广统计信息
+              </div>
             )}
           </CardContent>
         </Card>
@@ -123,13 +128,17 @@ export default async function ReferralsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {referralData ? (
+          {loading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : referralData ? (
             <PosterGenerator 
               referralLink={referralData.referralLink} 
               referralCode={referralCode} 
             />
           ) : (
-            <Skeleton className="h-10 w-full" />
+            <div className="text-center text-muted-foreground">
+              无法加载海报生成器
+            </div>
           )}
         </CardContent>
       </Card>
