@@ -1,12 +1,13 @@
 'use server';
 
 import { getDb } from '@/db';
-import { serverGroups } from '@/db/schema';
+import { serverGroups, subscriptions, plans } from '@/db/schema';
 import type { InferSelectModel } from 'drizzle-orm';
-import { eq } from 'drizzle-orm';
+import { eq, lt, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { parseNodeText } from '@/lib/node-utils';
+import { removeV2RayUUID } from '@/lib/v2ray-api';
 
 type ServerGroup = InferSelectModel<typeof serverGroups>;
 
@@ -112,4 +113,86 @@ export async function deleteServerGroup(groupId: string) {
     // Note: In a real app, you'd check if this group is used by any plans first.
     await db.delete(serverGroups).where(eq(serverGroups.id, groupId));
     revalidatePath('/admin/server-groups');
+}
+
+/**
+ * 删除服务器组中过期订阅的UUID
+ * @param serverGroupId 服务器组ID
+ * @returns 删除结果
+ */
+export async function removeExpiredUUIDsFromServerGroup(serverGroupId: string) {
+  const db = getDb();
+  
+  try {
+    // 1. 获取服务器组信息
+    const [serverGroup] = await db.select().from(serverGroups).where(eq(serverGroups.id, serverGroupId));
+    
+    if (!serverGroup) {
+      throw new Error('服务器组不存在');
+    }
+    
+    if (!serverGroup.apiUrl || !serverGroup.apiKey) {
+      throw new Error('服务器组缺少API配置');
+    }
+    
+    // 2. 获取该服务器组关联的所有过期订阅
+    // 直接通过subscriptions表的serverGroupId字段查找，提高查询效率
+    const expiredSubscriptions = await db.select({
+      id: subscriptions.id,
+      userUUID: subscriptions.userUUID,
+      expiresAt: subscriptions.expiresAt
+    })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.serverGroupId, serverGroupId),
+        lt(subscriptions.expiresAt, new Date())
+      )
+    );
+    
+    if (expiredSubscriptions.length === 0) {
+      return { 
+        success: true, 
+        message: '没有找到过期的订阅', 
+        removedCount: 0 
+      };
+    }
+    
+    // 3. 从V2Ray面板删除过期的UUID
+    let removedCount = 0;
+    const failedRemovals: string[] = [];
+    
+    for (const subscription of expiredSubscriptions) {
+      try {
+        const result = await removeV2RayUUID(
+          {
+            apiUrl: serverGroup.apiUrl,
+            apiKey: serverGroup.apiKey
+          },
+          subscription.userUUID
+        );
+        
+        if (result.success) {
+          removedCount++;
+        } else {
+          failedRemovals.push(subscription.userUUID);
+        }
+      } catch (error) {
+        console.error(`删除UUID ${subscription.userUUID} 失败:`, error);
+        failedRemovals.push(subscription.userUUID);
+      }
+    }
+    
+    // 4. 返回结果
+    return {
+      success: true,
+      message: `成功删除 ${removedCount} 个过期UUID`,
+      removedCount,
+      failedCount: failedRemovals.length,
+      failedUUIDs: failedRemovals
+    };
+  } catch (error) {
+    console.error('删除过期UUID时出错:', error);
+    throw new Error(error instanceof Error ? error.message : '删除过期UUID时发生未知错误');
+  }
 }

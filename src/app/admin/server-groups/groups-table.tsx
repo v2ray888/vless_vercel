@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { ServerGroup } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { createServerGroup, updateServerGroup } from './actions';
+import { createServerGroup, updateServerGroup, removeExpiredUUIDsFromServerGroup } from './actions';
 import { parseNodeText, formatNodeText } from '@/lib/node-utils';
 
 const ServerGroupForm = ({ 
@@ -129,6 +129,7 @@ const ServerGroupForm = ({
 export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGroup[] }) {
   const [isNewDialogOpen, setIsNewDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ServerGroup | null>(null);
+  const [groupToRemoveExpiredUUIDs, setGroupToRemoveExpiredUUIDs] = useState<ServerGroup | null>(null);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
@@ -160,6 +161,34 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
             toast({ variant: 'destructive', title: '删除失败', description: '该服务器组可能正被套餐使用。' });
         }
       });
+  };
+  
+  // 处理删除过期UUID
+  const handleRemoveExpiredUUIDs = (groupId: string, groupName: string) => {
+    startTransition(async () => {
+      try {
+        const result = await removeExpiredUUIDsFromServerGroup(groupId);
+        
+        if (result.success) {
+          toast({ 
+            title: '操作成功', 
+            description: `${groupName}: ${result.message}` 
+          });
+        } else {
+          toast({ 
+            variant: 'destructive', 
+            title: '操作失败', 
+            description: result.message || '删除过期UUID时发生错误' 
+          });
+        }
+      } catch (error) {
+        toast({ 
+          variant: 'destructive', 
+          title: '操作失败', 
+          description: error instanceof Error ? error.message : '删除过期UUID时发生未知错误' 
+        });
+      }
+    });
   };
 
   return (
@@ -212,6 +241,9 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
                         <DropdownMenuContent align="end">
                         <DropdownMenuLabel>操作</DropdownMenuLabel>
                         <DropdownMenuItem onSelect={() => setEditingGroup(group)}>编辑</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setGroupToRemoveExpiredUUIDs(group)}>
+                          删除过期UUID
+                        </DropdownMenuItem>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                             <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>删除</DropdownMenuItem>
@@ -244,6 +276,32 @@ export function ServerGroupsTable({ initialGroups }: { initialGroups: ServerGrou
                          />
                     </DialogContent>
                     </Dialog>
+                    
+                    {/* 删除过期UUID确认对话框 */}
+                    <AlertDialog open={!!groupToRemoveExpiredUUIDs && groupToRemoveExpiredUUIDs.id === group.id} onOpenChange={(open) => !open && setGroupToRemoveExpiredUUIDs(null)}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>确定要删除过期UUID吗？</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            此操作将删除服务器组 {groupToRemoveExpiredUUIDs?.name} 中所有已过期订阅的UUID。这将清理V2Ray面板中不再需要的UUID，以节省资源。此操作无法撤销。
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>取消</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => {
+                              if (groupToRemoveExpiredUUIDs) {
+                                handleRemoveExpiredUUIDs(groupToRemoveExpiredUUIDs.id, groupToRemoveExpiredUUIDs.name);
+                                setGroupToRemoveExpiredUUIDs(null);
+                              }
+                            }} 
+                            disabled={isPending}
+                          >
+                            {isPending ? "删除中..." : "继续删除"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                 </TableCell>
             </TableRow>
             ))}

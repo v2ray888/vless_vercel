@@ -11,6 +11,7 @@ export const subscriptions = pgTable('subscriptions', {
   trafficTotal: integer('traffic_total').notNull(), // 总流量（单位：bytes）
   trafficUsed: integer('traffic_used').notNull().default(0), // 已用流量（单位：bytes）
   status: text('status').notNull(), // 'active', 'expired', 'suspended'
+  serverGroupId: text('server_group_id').references(() => serverGroups.id), // 关联的服务器组ID
 }, (table) => {
   return {
     userIdIndex: index('subscriptions_user_id_idx').on(table.userId),
@@ -18,5 +19,6 @@ export const subscriptions = pgTable('subscriptions', {
     userUUIDIndex: index('subscriptions_user_uuid_idx').on(table.userUUID),
     subscriptionTokenIndex: index('subscriptions_token_idx').on(table.subscriptionToken),
     statusIndex: index('subscriptions_status_idx').on(table.status),
+    serverGroupIdIndex: index('subscriptions_server_group_id_idx').on(table.serverGroupId),
   };
 });
