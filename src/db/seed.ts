@@ -11,7 +11,7 @@ import {
   mockTutorials,
   mockAffiliates,
 } from '../lib/data';
-import bcrypt from 'bcryptjs';
+// 动态导入bcryptjs以避免Edge Runtime问题
 import { randomBytes } from 'crypto';
 import { sql } from 'drizzle-orm';
 
@@ -35,7 +35,7 @@ async function seed() {
 
   // Ensure admin email from .env is included in the mock users if not already present
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-  if (!mockUsers.some(u => u.email === adminEmail)) {
+  if (!mockUsers.some(u => (u as any).email === adminEmail)) {
     mockUsers.unshift({
         id: 'usr_admin',
         name: 'Admin',
@@ -43,7 +43,7 @@ async function seed() {
         status: 'active',
         plan: '年度套餐',
         endDate: '2099-12-31'
-    });
+    } as any);
   }
 
 
@@ -63,28 +63,30 @@ async function seed() {
   // Seed Plans
   const seededPlans = await db.insert(schema.plans).values(
     mockPlans.map(p => ({
-      id: p.id,
-      name: p.name,
+      id: (p as any).id,
+      name: (p as any).name,
       price_monthly: p.price_monthly || null,
       price_quarterly: p.price_quarterly || null,
       price_yearly: p.price_yearly || null,
-      serverGroupId: mockServerGroups.find(sg => sg.name === p.server_group)!.id,
-      status: p.status,
+      serverGroupId: mockServerGroups.find(sg => sg.name === (p as any).server_group)!.id,
+      status: (p as any).status,
     }))
   ).returning();
   console.log('Seeded plans.');
 
   // Seed Users
+  // 动态导入bcryptjs
+  const bcrypt = (await import('bcryptjs')).default;
   const hashedPassword = await bcrypt.hash('password', 10);
   const seededUsers = await db.insert(schema.users).values(
     mockUsers.map(u => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
+      id: (u as any).id,
+      name: (u as any).name,
+      email: (u as any).email,
       password: hashedPassword,
-      status: u.status,
+      status: (u as any).status,
       planId: seededPlans.find(p => p.name === u.plan)?.id || null,
-      endDate: u.endDate ? new Date(u.endDate) : null,
+      endDate: (u as any).endDate ? new Date((u as any).endDate) : null,
       subscriptionUrlToken: randomBytes(16).toString('hex'),
     }))
   ).returning();
@@ -94,8 +96,8 @@ async function seed() {
   await db.insert(schema.orders).values(
     mockOrders.map(o => ({
       id: o.id,
-      userId: seededUsers.find(u => u.email === o.user_email)!.id,
-      planId: seededPlans.find(p => p.name === o.plan_name)!.id,
+      userId: seededUsers.find(u => u.email === (o as any).user_email)!.id,
+      planId: seededPlans.find(p => p.name === (o as any).plan_name)!.id,
       amount: o.amount,
       date: new Date(o.date),
       status: o.status,
@@ -108,7 +110,7 @@ async function seed() {
     mockRedemptionCodes.map(rc => ({
         id: rc.id,
         code: rc.code,
-        planId: seededPlans.find(p => p.name === rc.plan)!.id,
+        planId: seededPlans.find(p => p.name === (rc as any).plan)!.id,
         status: rc.status,
         createdAt: new Date(rc.created_at),
         usedAt: rc.used_at ? new Date(rc.used_at) : null,
@@ -140,12 +142,12 @@ async function seed() {
 
   // Seed Affiliates
   const seededAffiliates = await db.insert(schema.affiliates).values(mockAffiliates.map(aff => ({
-    id: aff.id,
-    userId: seededUsers.find(u => u.id === aff.userId)!.id,
+    id: (aff as any).id,
+    userId: seededUsers.find(u => u.id === (aff as any).userId)!.id,
     referralCode: randomBytes(8).toString('hex'),
-    referralCount: aff.referralCount,
-    totalCommission: aff.totalCommission,
-    pendingCommission: aff.pendingCommission,
+    referralCount: (aff as any).referralCount,
+    totalCommission: (aff as any).totalCommission,
+    pendingCommission: (aff as any).pendingCommission,
   }))).returning();
   console.log('Seeded affiliates.');
 

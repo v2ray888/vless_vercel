@@ -4,7 +4,7 @@
 import { getDb } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
+// 动态导入bcryptjs以避免Edge Runtime问题
 import { z } from 'zod';
 
 type ActionResult = {
@@ -70,6 +70,9 @@ export async function changePassword(
     if (!currentUser?.password) {
         return { success: false, message: '无法验证当前用户。' };
     }
+
+    // 动态导入bcryptjs
+    const bcrypt = (await import('bcryptjs')).default;
 
     const passwordsMatch = await bcrypt.compare(currentPassword, currentUser.password);
 

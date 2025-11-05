@@ -8,6 +8,14 @@ let dbInstance: ReturnType<typeof drizzle> | null = null;
 export function getDb() {
   // 检查是否在服务器端运行
   if (typeof window === 'undefined') {
+    // 检查是否在Edge Runtime中运行
+    const isEdgeRuntime = typeof process !== 'undefined' && process.versions && process.versions.node === undefined;
+    
+    // 在Edge Runtime中不支持数据库操作，返回null或抛出错误
+    if (isEdgeRuntime) {
+      throw new Error('Database operations are not supported in Edge Runtime');
+    }
+    
     if (dbInstance) {
       return dbInstance;
     }

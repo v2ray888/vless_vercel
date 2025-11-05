@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { getDb } from '@/db/index';
 import { users, affiliates } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
+// 动态导入bcryptjs以避免Edge Runtime问题
 import { getBaseUrl } from '@/lib/url-utils';
 
 /**
@@ -93,6 +93,9 @@ export async function signup(prevState: { message: string } | undefined, formDat
         referredById = referrer.id;
       }
     }
+    
+    // 动态导入bcryptjs
+    const bcrypt = (await import('bcryptjs')).default;
     
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10);

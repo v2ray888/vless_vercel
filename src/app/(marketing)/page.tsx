@@ -33,6 +33,11 @@ const DEFAULT_SEO_SETTINGS: SeoSettings = {
 
 // 服务器端获取SEO设置的函数
 async function getSeoSettings(): Promise<SeoSettings> {
+  // 在构建时避免连接到本地API
+  if (process.env.NEXT_PHASE === 'phase-production-build') {
+    return DEFAULT_SEO_SETTINGS;
+  }
+  
   try {
     // 在服务器端获取SEO设置
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9102'}/api/seo-settings`, {

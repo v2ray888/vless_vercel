@@ -1,5 +1,17 @@
-import { getSettings } from '@/app/admin/settings/actions';
 import { NextResponse } from 'next/server';
+
+// 使用动态导入来避免在模块加载时就尝试连接数据库
+async function getSettings(keys: string[]) {
+  try {
+    // 动态导入设置操作模块
+    const { getSettings: getSettingsFromDB } = await import('@/app/admin/settings/actions');
+    // 转换类型以匹配期望的参数类型
+    return await getSettingsFromDB(keys as any);
+  } catch (error) {
+    console.error('Failed to import settings actions:', error);
+    throw error;
+  }
+}
 
 export async function GET() {
   try {
@@ -64,3 +76,6 @@ export async function GET() {
     });
   }
 }
+
+// 配置运行时环境
+export const runtime = 'nodejs';
