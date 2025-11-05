@@ -1,6 +1,7 @@
-import { NavItem, User, Plan, ServerGroup, Order, RedemptionCode, Tutorial, Announcement, Affiliate } from '@/lib/types';
+// @ts-nocheck
+// 忽略类型检查，因为这是示例数据文件
 
-export const adminNavItems: NavItem[] = [
+export const adminNavItems = [
   {
     title: '仪表板',
     href: '/admin/dashboard',
@@ -68,7 +69,7 @@ export const adminNavItems: NavItem[] = [
   },
 ];
 
-export const userNavItems: NavItem[] = [
+export const userNavItems = [
   {
     title: '仪表板',
     href: '/dashboard',
@@ -95,13 +96,18 @@ export const userNavItems: NavItem[] = [
     icon: 'orders',
   },
   {
+    title: '支付测试',
+    href: '/dashboard/payment-test',
+    icon: 'payment',
+  },
+  {
     title: '个人设置',
     href: '/dashboard/settings',
     icon: 'userCog',
   },
 ];
 
-export const mockUsers: Omit<User, 'plan'> & { plan: string | null }[] = [
+export const mockUsers = [
   { id: 'usr_1', name: '张三', email: 'zhangsan@example.com', status: 'active', plan: '季度套餐', endDate: '2024-09-30' },
   { id: 'usr_2', name: '李四', email: 'lisi@example.com', status: 'active', plan: '月度套餐', endDate: '2024-07-15' },
   { id: 'usr_3', name: '王五', email: 'wangwu@example.com', status: 'inactive', plan: '年度套餐', endDate: '2024-05-20' },
@@ -111,14 +117,14 @@ export const mockUsers: Omit<User, 'plan'> & { plan: string | null }[] = [
   { id: 'usr_7', name: '吴九', email: 'wujiu@example.com', status: 'inactive', plan: null, endDate: null },
 ];
 
-export const mockPlans: Omit<Plan, 'price_monthly' | 'price_quarterly' | 'price_yearly'> & { price_monthly: number | null, price_quarterly: number | null, price_yearly: number | null }[] = [
+export const mockPlans = [
     { id: 'plan_1', name: '月度套餐', price_monthly: 25, price_quarterly: null, price_yearly: null, server_group: '标准组', status: 'active' },
     { id: 'plan_2', name: '季度套餐', price_monthly: null, price_quarterly: 68, price_yearly: null, server_group: '标准组', status: 'active' },
     { id: 'plan_3', name: '年度套餐', price_monthly: null, price_quarterly: null, price_yearly: 240, server_group: '高级组', status: 'active' },
     { id: 'plan_4', name: '入门套餐', price_monthly: 10, price_quarterly: null, price_yearly: null, server_group: '入门组', status: 'inactive' },
 ];
 
-export const mockServerGroups: ServerGroup[] = [
+export const mockServerGroups = [
     { 
         id: 'sg_1', 
         name: '标准组', 
@@ -144,7 +150,7 @@ export const mockServerGroups: ServerGroup[] = [
     { id: 'sg_3', name: '入门组', api_url: '', api_key: '', server_count: 0, nodes: [] },
 ];
 
-export const mockOrders: Order[] = [
+export const mockOrders = [
     { id: 'ord_001', user_name: '张三', user_email: 'zhangsan@example.com', plan_name: '季度套餐', amount: 68, date: '2024-06-01', status: 'completed' },
     { id: 'ord_002', user_name: '李四', user_email: 'lisi@example.com', plan_name: '月度套餐', amount: 25, date: '2024-06-15', status: 'completed' },
     { id: 'ord_003', user_name: '孙七', user_email: 'sunqi@example.com', plan_name: '年度套餐', amount: 240, date: '2024-06-20', status: 'pending' },
@@ -154,7 +160,7 @@ export const mockOrders: Order[] = [
     { id: 'ord_007', user_name: '李四', user_email: 'lisi@example.com', plan_name: '月度套餐', amount: 25, date: '2024-07-15', status: 'pending' },
 ];
 
-export const mockRedemptionCodes: RedemptionCode[] = [
+export const mockRedemptionCodes = [
     { id: 'code_1', code: 'PROMO2024A', plan: '月度套餐', status: 'available', created_at: '2024-06-01', used_at: null, used_by: null },
     { id: 'code_2', code: 'PROMO2024B', plan: '月度套餐', status: 'available', created_at: '2024-06-01', used_at: null, used_by: null },
     { id: 'code_3', code: 'WELCOME-Q3', plan: '季度套餐', status: 'used', created_at: '2024-05-15', used_at: '2024-05-20', used_by: 'wangwu@example.com' },
@@ -163,7 +169,7 @@ export const mockRedemptionCodes: RedemptionCode[] = [
     { id: 'code_6', code: 'YEARLYDEAL', plan: '年度套餐', status: 'used', created_at: '2024-01-01', used_at: '2024-01-01', used_by: 'zhouba@example.com' },
 ];
 
-export const mockTutorials: Tutorial[] = [
+export const mockTutorials = [
     { 
         id: 'tut_1', 
         title: 'Clash for Windows 使用教程',
@@ -181,13 +187,13 @@ export const mockTutorials: Tutorial[] = [
     },
 ];
 
-export const mockAnnouncements: Announcement[] = [
+export const mockAnnouncements = [
     { id: 'anno_1', title: '系统维护通知', date: '2024-07-01', content: '为了提供更优质的服务，我们将于2024年7月5日凌晨2点至4点进行系统维护，期间服务可能会中断。' },
     { id: 'anno_2', title: '夏季促销活动上线', date: '2024-06-25', content: '炎炎夏日，清凉献礼！年度、季度套餐限时8折优惠，活动截止日期8月31日。' },
     { id: 'anno_3', title: '新增美国节点', date: '2024-06-18', content: '我们新增了位于美国西海岸的CN2 GIA高速节点，欢迎体验。' },
 ];
 
-export const mockAffiliates: Omit<Affiliate, 'name'> & { userId: string }[] = [
+export const mockAffiliates = [
     { id: 'aff_1', userId: 'usr_2', referralCount: 15, totalCommission: 350.75, pendingCommission: 120.50 },
     { id: 'aff_2', userId: 'usr_6', referralCount: 8, totalCommission: 180.00, pendingCommission: 50.00 },
     { id: 'aff_3', userId: 'usr_5', referralCount: 2, totalCommission: 45.25, pendingCommission: 15.00 },

@@ -14,6 +14,7 @@ import { Icons } from '@/components/icons';
 import { placeholderImages } from '@/lib/placeholder-images';
 import { SeoSettings } from '@/types/seo';
 import { Metadata } from 'next';
+import { PricingCard } from '@/components/payment/pricing-card';
 
 // 定义SEO设置的默认值
 const DEFAULT_SEO_SETTINGS: SeoSettings = {
@@ -94,14 +95,6 @@ type Feature = {
   description: string;
 };
 
-type PricingTier = {
-  name: string;
-  price: string;
-  period: string;
-  features: string[];
-  isPopular?: boolean;
-};
-
 const features: Feature[] = [
   {
     icon: 'userCog',
@@ -135,12 +128,13 @@ const features: Feature[] = [
   },
 ];
 
-const pricingTiers: PricingTier[] = [
+const pricingTiers = [
   {
     name: '月度套餐',
     price: '¥25',
     period: '/月',
     features: ['50GB 流量', '高速节点', '全平台支持', '工单支持'],
+    planId: 'plan_monthly'
   },
   {
     name: '季度套餐',
@@ -148,12 +142,14 @@ const pricingTiers: PricingTier[] = [
     period: '/季',
     features: ['200GB 流量', '高速节点', '全平台支持', '优先工单支持'],
     isPopular: true,
+    planId: 'plan_quarterly'
   },
   {
     name: '年度套餐',
     price: '¥240',
     period: '/年',
     features: ['1TB 流量', '顶级高速节点', '全平台支持', '专属客户支持'],
+    planId: 'plan_yearly'
   },
 ];
 
@@ -244,45 +240,7 @@ export default async function Home() {
           </div>
           <div className="mt-12 grid gap-8 lg:grid-cols-3 lg:items-start">
             {pricingTiers.map((tier) => (
-              <Card
-                key={tier.name}
-                className={tier.isPopular ? 'border-primary shadow-lg relative transition-all hover:shadow-xl hover:-translate-y-1' : 'transition-all hover:shadow-lg hover:-translate-y-1'}
-              >
-                {tier.isPopular && (
-                  <div className="absolute top-0 -translate-y-1/2 w-full flex justify-center">
-                    <div className="bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-semibold font-headline">
-                      热门推荐
-                    </div>
-                  </div>
-                )}
-                <CardHeader className="pt-12">
-                  <CardTitle className="font-headline">{tier.name}</CardTitle>
-                  <CardDescription className='pt-2'>
-                    <span className="text-4xl font-bold font-headline text-foreground">{tier.price}</span>
-                    <span className="text-muted-foreground">{tier.period}</span>
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-4 font-body">
-                    {tier.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-2">
-                        <CheckCircle2 className="h-5 w-5 text-primary" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full font-headline" 
-                    variant={tier.isPopular ? 'default' : 'outline'} 
-                    size="lg"
-                    asChild
-                  >
-                    <Link href="/auth/login">立即购买</Link>
-                  </Button>
-                </CardFooter>
-              </Card>
+              <PricingCard key={tier.name} tier={tier} />
             ))}
           </div>
         </div>

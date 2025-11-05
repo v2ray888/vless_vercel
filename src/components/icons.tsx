@@ -29,6 +29,7 @@ import {
   Sprout,
   Download,
   Gift,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -95,4 +96,5 @@ export const Icons = {
   sprout: Sprout,
   download: Download,
   gift: Gift,
+  payment: CreditCard,
 };

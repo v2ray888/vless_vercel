@@ -14,10 +14,10 @@ import { Separator } from '@/components/ui/separator';
 import { getAnnouncements } from '../admin/announcements/actions';
 import { getUserDashboardData } from './actions';
 import { useEffect, useState } from 'react';
-import type { Announcement } from '@/lib/types';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Gift, ShoppingCart } from 'lucide-react';
+import type { Announcement } from '@/lib/types';
 
 // 添加无订阅卡片组件
 function NoSubscriptionCard() {
@@ -28,14 +28,14 @@ function NoSubscriptionCard() {
       <p className="text-muted-foreground">
         请先购买套餐或使用兑换码来激活您的订阅。
       </p>
-      <div className="flex gap-4 mt-2">
+      <div className="flex gap-2 pt-2">
         <Button asChild>
           <Link href="/#pricing">
             <ShoppingCart className="mr-2 h-4 w-4" />
             选择套餐
           </Link>
         </Button>
-        <Button asChild variant="outline">
+        <Button variant="outline" asChild>
           <Link href="/redeem">
             <Gift className="mr-2 h-4 w-4" />
             使用兑换码
