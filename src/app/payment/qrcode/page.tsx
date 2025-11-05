@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Loader2, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
 import QRCode from 'react-qr-code';
 
-export default function PaymentQRCodePage() {
+function PaymentQRCodeContent() {
   const searchParams = useSearchParams();
   const qrCodeUrl = searchParams.get('url') || '';
   const orderId = searchParams.get('orderId') || '';
@@ -94,5 +94,31 @@ export default function PaymentQRCodePage() {
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+function PaymentQRCodeFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle>加载中...</CardTitle>
+          <CardDescription>正在加载支付信息</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function PaymentQRCodePage() {
+  return (
+    <Suspense fallback={<PaymentQRCodeFallback />}>
+      <PaymentQRCodeContent />
+    </Suspense>
   );
 }
