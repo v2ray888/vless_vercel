@@ -9,7 +9,8 @@ export function getDb() {
   // 检查是否在服务器端运行
   if (typeof window === 'undefined') {
     // 检查是否在Edge Runtime中运行
-    const isEdgeRuntime = typeof process !== 'undefined' && process.versions && process.versions.node === undefined;
+    // 使用NEXT_RUNTIME环境变量来判断运行时环境，避免使用process.versions
+    const isEdgeRuntime = process.env.NEXT_RUNTIME === 'edge';
     
     // 在Edge Runtime中不支持数据库操作，返回null或抛出错误
     if (isEdgeRuntime) {
