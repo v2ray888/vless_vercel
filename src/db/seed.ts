@@ -160,8 +160,19 @@ async function seed() {
   // Seed default settings
   await db.insert(schema.settings).values([
     { key: 'affiliate_commission_rate', value: { value: 20 } },
-    { key: 'site_name', value: { value: 'VLess Manager Pro' } },
-    { key: 'site_url', value: { value: 'https://example.com' } },
+    { key: 'site_name', value: { value: 'Clash VLess VPN 官网' } },
+    { key: 'site_url', value: { value: 'https://clash.cam' } },
+    { key: 'site_description', value: { value: '高性能 VPN 工具 Clash 与 VLESS 协议结合，提供稳定、安全、快速的科学上网解决方案，支持 Windows、Mac、Android 等平台。' } },
+    { key: 'site_keywords', value: { value: 'Clash VPN,VLESS VPN,科学上网,Clash配置教程,Clash客户端下载,Clash节点,Clash订阅,Clash for Windows,Clash for Android,Clash官网' } },
+    { key: 'site_author', value: { value: 'Clash' } },
+    { key: 'site_robots', value: { value: 'index, follow' } },
+    { key: 'og_title', value: { value: 'Clash VLess VPN 官网' } },
+    { key: 'og_description', value: { value: '高性能 VPN 工具 Clash 与 VLESS 协议结合，提供稳定、安全、快速的科学上网解决方案，支持 Windows、Mac、Android 等平台。' } },
+    { key: 'og_image', value: { value: 'https://example.com/og-image.jpg' } },
+    { key: 'og_type', value: { value: 'website' } },
+    { key: 'twitter_card', value: { value: 'summary' } },
+    { key: 'twitter_site', value: { value: '@clashvpn' } },
+    { key: 'twitter_creator', value: { value: '@clashvpn' } },
   ]);
   console.log('Seeded default settings.');
 

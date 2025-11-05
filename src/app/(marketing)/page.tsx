@@ -1,5 +1,3 @@
-'use client';
-
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -14,13 +12,92 @@ import {
 } from '@/components/ui/card';
 import { Icons } from '@/components/icons';
 import { placeholderImages } from '@/lib/placeholder-images';
-import { useAuth } from '@/contexts/auth-context';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-// 导入付款对话框组件
-import { PaymentDialog } from '@/components/payment/payment-dialog';
+import { SeoSettings } from '@/types/seo';
+import { Metadata } from 'next';
 
-const features = [
+// 定义SEO设置的默认值
+const DEFAULT_SEO_SETTINGS: SeoSettings = {
+  site_name: 'Clash VLess VPN 官网',
+  site_description: '高性能 VPN 工具 Clash 与 VLESS 协议结合，提供稳定、安全、快速的科学上网解决方案，支持 Windows、Mac、Android 等平台。',
+  site_keywords: 'Clash VPN,VLESS VPN,科学上网,Clash配置教程,Clash客户端下载,Clash节点,Clash订阅,Clash for Windows,Clash for Android,Clash官网',
+  site_author: 'Clash',
+  site_robots: 'index, follow',
+  og_title: 'Clash VLess VPN 官网',
+  og_description: '高性能 VPN 工具 Clash 与 VLESS 协议结合，提供稳定、安全、快速的科学上网解决方案，支持 Windows、Mac、Android 等平台。',
+  og_image: '',
+  og_type: 'website',
+  twitter_card: 'summary',
+  twitter_site: '',
+  twitter_creator: '',
+};
+
+// 服务器端获取SEO设置的函数
+async function getSeoSettings(): Promise<SeoSettings> {
+  try {
+    // 在服务器端获取SEO设置
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9102'}/api/seo-settings`, {
+      next: { revalidate: 3600 } // 每小时重新验证一次
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch SEO settings: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      return { ...DEFAULT_SEO_SETTINGS, ...result.data };
+    }
+  } catch (error) {
+    console.error('Failed to fetch SEO settings:', error);
+  }
+  
+  // 返回默认设置
+  return DEFAULT_SEO_SETTINGS;
+}
+
+// 生成页面元数据
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSeoSettings();
+  
+  return {
+    title: settings.site_name,
+    description: settings.site_description,
+    keywords: settings.site_keywords?.split(','),
+    authors: settings.site_author ? [{ name: settings.site_author }] : [],
+    robots: settings.site_robots,
+    openGraph: {
+      title: settings.og_title || settings.site_name,
+      description: settings.og_description || settings.site_description,
+      images: settings.og_image ? [settings.og_image] : [],
+      type: settings.og_type as any,
+    },
+    twitter: {
+      card: settings.twitter_card as any,
+      site: settings.twitter_site,
+      creator: settings.twitter_creator,
+      title: settings.og_title || settings.site_name,
+      description: settings.og_description || settings.site_description,
+      images: settings.og_image ? [settings.og_image] : [],
+    },
+  };
+}
+
+type Feature = {
+  icon: string;
+  title: string;
+  description: string;
+};
+
+type PricingTier = {
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  isPopular?: boolean;
+};
+
+const features: Feature[] = [
   {
     icon: 'userCog',
     title: '用户管理',
@@ -53,7 +130,7 @@ const features = [
   },
 ];
 
-const pricingTiers = [
+const pricingTiers: PricingTier[] = [
   {
     name: '月度套餐',
     price: '¥25',
@@ -75,66 +152,18 @@ const pricingTiers = [
   },
 ];
 
-export default function Home() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-  // 添加付款对话框状态
-  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<{name: string, price: string} | null>(null);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
+export default async function Home() {
+  // 获取SEO设置和主页背景图片
+  const settings = await getSeoSettings();
   const heroImage = placeholderImages.find(p => p.id === 'hero-network');
-
-  const handleGetStarted = () => {
-    if (user) {
-      // 如果用户已登录，跳转到仪表板
-      router.push('/dashboard');
-    } else {
-      // 如果用户未登录，跳转到登录页面
-      router.push('/auth/login');
-    }
-  };
-
-  // 修改套餐购买处理函数
-  const handlePurchase = (tierName: string, tierPrice: string) => {
-    if (user) {
-      // 如果用户已登录，显示付款对话框
-      setSelectedTier({ name: tierName, price: tierPrice });
-      setIsPaymentDialogOpen(true);
-    } else {
-      // 如果用户未登录，跳转到登录页面
-      router.push('/auth/login');
-    }
-  };
-
-  // 处理支付成功
-  const handlePaymentSuccess = () => {
-    // 支付成功后跳转到订阅页面
-    router.push('/dashboard/subscription');
-  };
 
   return (
     <div className="flex flex-col">
-      {/* 添加付款对话框 */}
-      {selectedTier && (
-        <PaymentDialog
-          open={isPaymentDialogOpen}
-          onOpenChange={setIsPaymentDialogOpen}
-          tierName={selectedTier.name}
-          price={selectedTier.price}
-          onPaymentSuccess={handlePaymentSuccess}
-        />
-      )}
-      
       <section className="relative w-full py-20 md:py-32 lg:py-40">
         <div className="container mx-auto max-w-5xl px-4 md:px-6 text-center">
           <div className="max-w-3xl mx-auto">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-headline font-bold tracking-tight text-foreground">
-              VLess Manager Pro
+              {settings.site_name}
             </h1>
             <p className="mt-6 text-lg md:text-xl text-muted-foreground font-body">
               专业、稳定、高效的VLess订阅管理系统，为您提供极致的网络体验。
@@ -147,10 +176,9 @@ export default function Home() {
                 size="lg" 
                 variant="outline" 
                 className="font-headline"
-                onClick={handleGetStarted}
-                disabled={loading && isClient}
+                asChild
               >
-                {loading && isClient ? '加载中...' : '开始使用'}
+                <Link href="/auth/login">开始使用</Link>
               </Button>
             </div>
           </div>
@@ -244,9 +272,9 @@ export default function Home() {
                     className="w-full font-headline" 
                     variant={tier.isPopular ? 'default' : 'outline'} 
                     size="lg"
-                    onClick={() => handlePurchase(tier.name, tier.price)}
+                    asChild
                   >
-                    立即购买
+                    <Link href="/auth/login">立即购买</Link>
                   </Button>
                 </CardFooter>
               </Card>

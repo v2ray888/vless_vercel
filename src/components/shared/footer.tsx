@@ -7,7 +7,7 @@ export function Footer() {
         <div className="flex items-center gap-2">
           <Icons.logo className="h-5 w-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} VLess Manager Pro. All rights reserved.
+            &copy; {new Date().getFullYear()} Clash VLess VPN 官网. All rights reserved.
           </p>
         </div>
       </div>

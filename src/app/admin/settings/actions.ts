@@ -5,16 +5,30 @@ import { settings } from '@/db/schema';
 import { revalidatePath } from 'next/cache';
 import { eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
+import type { InferSelectModel } from 'drizzle-orm';
 
 type SettingsData = {
   [key: string]: any;
 };
+
+type Setting = InferSelectModel<typeof settings>;
 
 // Define a schema for the settings we expect to handle.
 // This helps with validation and type safety.
 const settingsSchema = z.object({
     'site_name': z.string().optional(),
     'site_url': z.string().url().or(z.literal('')).optional(),
+    'site_description': z.string().optional(),
+    'site_keywords': z.string().optional(),
+    'site_author': z.string().optional(),
+    'site_robots': z.string().optional(),
+    'og_title': z.string().optional(),
+    'og_description': z.string().optional(),
+    'og_image': z.string().url().or(z.literal('')).optional(),
+    'og_type': z.string().optional(),
+    'twitter_card': z.string().optional(),
+    'twitter_site': z.string().optional(),
+    'twitter_creator': z.string().optional(),
     'payment_gateway_apikey': z.string().optional(),
     'smtp_host': z.string().optional(),
     'smtp_user': z.string().optional(),
@@ -28,12 +42,10 @@ export async function getSettings(keys: (keyof SettingsPayload)[]): Promise<Sett
   if (!keys || keys.length === 0) {
     return {};
   }
-  const result = await db.query.settings.findMany({
-    where: inArray(settings.key, keys),
-  });
+  const result = await db.select().from(settings).where(inArray(settings.key, keys));
 
   const settingsData: SettingsData = {};
-  result.forEach(item => {
+  result.forEach((item: Setting) => {
     // For security, never return password fields.
     if (item.key === 'smtp_pass') {
       settingsData[item.key] = item.value ? '••••••••' : '';

@@ -6,9 +6,8 @@ import * as schema from './schema';
 let dbInstance: ReturnType<typeof drizzle> | null = null;
 
 export function getDb() {
-  // 在Edge Runtime中不初始化数据库连接
-  // 使用NEXT_RUNTIME环境变量来检测运行时环境
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
+  // 检查是否在服务器端运行
+  if (typeof window === 'undefined') {
     if (dbInstance) {
       return dbInstance;
     }
@@ -17,12 +16,17 @@ export function getDb() {
       throw new Error('DATABASE_URL is not set');
     }
 
-    const client = postgres(process.env.DATABASE_URL);
+    // 确保连接字符串包含正确的字符集设置
+    const databaseUrl = process.env.DATABASE_URL.includes('?') 
+      ? `${process.env.DATABASE_URL}&encoding=utf8`
+      : `${process.env.DATABASE_URL}?encoding=utf8`;
+
+    const client = postgres(databaseUrl);
     dbInstance = drizzle(client, { schema });
     
     return dbInstance;
   }
   
-  // 在Edge Runtime中抛出错误
-  throw new Error('Database operations are not supported in Edge Runtime');
+  // 在客户端抛出错误
+  throw new Error('Database operations are not supported in browser');
 }

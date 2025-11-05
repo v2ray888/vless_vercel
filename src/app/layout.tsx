@@ -16,8 +16,8 @@ const fontHeadline = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'VLess Manager Pro',
-  description: 'Advanced VLess Subscription Management System',
+  title: 'Clash VLess VPN 官网',
+  description: '高性能 VPN 工具 Clash 与 VLESS 协议结合，提供稳定、安全、快速的科学上网解决方案，支持 Windows、Mac、Android 等平台。',
 };
 
 export default function RootLayout({

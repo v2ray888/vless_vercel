@@ -56,7 +56,6 @@ export const UserForm = ({
             id="email"
             name="email"
             type="email"
-            defaultValue={user?.email}
             className="col-span-3"
             required
             disabled={isPending}

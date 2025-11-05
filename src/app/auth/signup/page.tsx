@@ -74,7 +74,6 @@ function SignupFormContent() {
             id="email"
             name="email"
             type="email"
-            placeholder="m@example.com"
             required
           />
         </div>
