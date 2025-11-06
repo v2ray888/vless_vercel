@@ -354,7 +354,7 @@ export function PaymentModal({
                   onClick={handleDirectPay}
                 >
                   <Monitor className="mr-2 h-4 w-4" />
-                  打开{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
+                  {paymentMethod === 'wechat' ? '用微信扫二维码支付' : '打开支付宝支付'}
                 </Button>
               )}
 
