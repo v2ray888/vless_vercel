@@ -349,13 +349,9 @@ export function PaymentModal({
                   </p>
                 </div>
               ) : (
-                <Button 
-                  className="w-full" 
-                  onClick={handleDirectPay}
-                >
-                  <Monitor className="mr-2 h-4 w-4" />
-                  {paymentMethod === 'wechat' ? '用微信扫二维码支付' : '打开支付宝支付'}
-                </Button>
+                <p className="text-sm text-muted-foreground text-center">
+                  请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描上方二维码完成支付
+                </p>
               )}
 
             </div>
