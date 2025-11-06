@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, QrCode, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, QrCode, CheckCircle, AlertCircle, Smartphone, Monitor } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { useAuth } from '@/contexts/auth-context';
+import { detectDeviceType, isWeChatBrowser, isAlipayBrowser } from '@/lib/device-detection';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -34,12 +35,28 @@ export function PaymentModal({
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay'>('wechat'); // 默认微信支付
   const [error, setError] = useState<string | null>(null); // 添加错误状态
   const [deviceType, setDeviceType] = useState<'mobile' | 'desktop' | null>(null); // 设备类型
+  const [isWeChatBrowser, setIsWeChatBrowser] = useState(false);
+  const [isAlipayBrowser, setIsAlipayBrowser] = useState(false);
 
-  // 检测设备类型
+  // 检测设备类型和浏览器类型
   useEffect(() => {
     const userAgent = navigator.userAgent;
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-    setDeviceType(isMobile ? 'mobile' : 'desktop');
+    const detectedDeviceType = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) ? 'mobile' : 'desktop';
+    const weChatBrowser = /MicroMessenger/i.test(userAgent);
+    const alipayBrowser = /AlipayClient/i.test(userAgent);
+    
+    setDeviceType(detectedDeviceType);
+    setIsWeChatBrowser(weChatBrowser);
+    setIsAlipayBrowser(alipayBrowser);
+    
+    // 如果在微信浏览器中，默认选择微信支付
+    if (weChatBrowser) {
+      setPaymentMethod('wechat');
+    }
+    // 如果在支付宝浏览器中，默认选择支付宝支付
+    else if (alipayBrowser) {
+      setPaymentMethod('alipay');
+    }
   }, []);
 
   useEffect(() => {
@@ -85,36 +102,17 @@ export function PaymentModal({
         
         if (result.code === 1) {
           // 根据设备类型决定如何处理支付
-          if (deviceType === 'mobile') {
-            // 移动设备，如果有跳转URL则直接跳转
-            if (result.payurl) {
-              // 在移动设备上，我们可以选择直接跳转或显示二维码
-              // 这里我们仍然显示二维码，但可以提供跳转选项
-              setPaymentUrl(result.payurl);
-            } else if (result.qrcode) {
-              setPaymentUrl(result.qrcode);
-            } else {
-              setError('支付信息不完整');
-              toast({
-                variant: 'destructive',
-                title: '支付失败',
-                description: '支付信息不完整，未返回支付URL或二维码',
-              });
-            }
+          if (result.payurl) {
+            setPaymentUrl(result.payurl);
+          } else if (result.qrcode) {
+            setPaymentUrl(result.qrcode);
           } else {
-            // 桌面设备，显示二维码
-            if (result.payurl) {
-              setPaymentUrl(result.payurl);
-            } else if (result.qrcode) {
-              setPaymentUrl(result.qrcode);
-            } else {
-              setError('支付信息不完整');
-              toast({
-                variant: 'destructive',
-                title: '支付失败',
-                description: '支付信息不完整，未返回支付URL或二维码',
-              });
-            }
+            setError('支付信息不完整');
+            toast({
+              variant: 'destructive',
+              title: '支付失败',
+              description: '支付信息不完整，未返回支付URL或二维码',
+            });
           }
           setError(null); // 清除错误
         } else {
@@ -213,6 +211,13 @@ export function PaymentModal({
     }
   };
 
+  // 自动跳转到支付页面（适用于移动设备上的特定浏览器）
+  const handleAutoRedirect = () => {
+    if (paymentUrl) {
+      window.location.href = paymentUrl;
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md" aria-describedby={undefined}>
@@ -230,6 +235,23 @@ export function PaymentModal({
               <p className="font-semibold">¥{price.toFixed(2)}</p>
             </div>
           </div>
+          
+          {/* 设备类型提示 */}
+          {deviceType && (
+            <div className="flex items-center gap-2 p-2 bg-blue-50 rounded-lg text-sm">
+              {deviceType === 'mobile' ? (
+                <>
+                  <Smartphone className="h-4 w-4 text-blue-500" />
+                  <span>检测到您正在使用移动设备</span>
+                </>
+              ) : (
+                <>
+                  <Monitor className="h-4 w-4 text-blue-500" />
+                  <span>检测到您正在使用桌面设备</span>
+                </>
+              )}
+            </div>
+          )}
           
           {/* 支付方式选择 */}
           <div className="space-y-2">
@@ -301,18 +323,41 @@ export function PaymentModal({
               <p className="text-sm text-muted-foreground text-center">
                 请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描二维码完成支付
               </p>
-              <Button 
-                className="w-full" 
-                onClick={handleDirectPay}
-              >
-                <QrCode className="mr-2 h-4 w-4" />
-                在新窗口打开支付页面
-              </Button>
-              {deviceType === 'mobile' && (
-                <p className="text-xs text-muted-foreground text-center">
-                  移动设备用户也可以点击上方按钮在新窗口中完成支付
-                </p>
+              
+              {/* 根据设备类型显示不同的按钮 */}
+              {deviceType === 'mobile' ? (
+                <div className="w-full space-y-2">
+                  <Button 
+                    className="w-full" 
+                    onClick={handleDirectPay}
+                  >
+                    <Smartphone className="mr-2 h-4 w-4" />
+                    打开{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
+                  </Button>
+                  {(isWeChatBrowser && paymentMethod === 'wechat') || 
+                   (isAlipayBrowser && paymentMethod === 'alipay') ? (
+                    <Button 
+                      variant="outline" 
+                      className="w-full" 
+                      onClick={handleAutoRedirect}
+                    >
+                      直接跳转到{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
+                    </Button>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground text-center">
+                    移动设备用户建议在新窗口中完成支付
+                  </p>
+                </div>
+              ) : (
+                <Button 
+                  className="w-full" 
+                  onClick={handleDirectPay}
+                >
+                  <Monitor className="mr-2 h-4 w-4" />
+                  打开{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
+                </Button>
               )}
+
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
