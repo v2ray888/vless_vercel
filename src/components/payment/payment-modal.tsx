@@ -33,6 +33,14 @@ export function PaymentModal({
   const [isPaid, setIsPaid] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'wechat' | 'alipay'>('wechat'); // 默认微信支付
   const [error, setError] = useState<string | null>(null); // 添加错误状态
+  const [deviceType, setDeviceType] = useState<'mobile' | 'desktop' | null>(null); // 设备类型
+
+  // 检测设备类型
+  useEffect(() => {
+    const userAgent = navigator.userAgent;
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+    setDeviceType(isMobile ? 'mobile' : 'desktop');
+  }, []);
 
   useEffect(() => {
     const createPaymentOrder = async () => {
@@ -68,6 +76,7 @@ export function PaymentModal({
             amount: price,
             productName: shortProductName, // 使用优化后的商品名称
             paymentType: paymentMethod === 'wechat' ? 'wxpay' : 'alipay', // 根据选择的支付方式设置
+            userAgent: navigator.userAgent, // 传递用户代理字符串用于设备检测
           }),
         });
         
@@ -75,24 +84,37 @@ export function PaymentModal({
         console.log('支付API响应:', result);
         
         if (result.code === 1) {
-          // 无论返回的是支付URL还是二维码，都显示二维码页面
-          // 如果返回了支付URL，提取二维码信息（如果可能）
-          if (result.payurl) {
-            // 对于支付宝，我们不直接跳转，而是尝试获取二维码
-            setPaymentUrl(result.payurl);
-          } 
-          // 如果返回了二维码，直接显示二维码
-          else if (result.qrcode) {
-            setPaymentUrl(result.qrcode);
-          }
-          // 如果两者都没有，显示错误
-          else {
-            setError('支付信息不完整');
-            toast({
-              variant: 'destructive',
-              title: '支付失败',
-              description: '支付信息不完整，未返回支付URL或二维码',
-            });
+          // 根据设备类型决定如何处理支付
+          if (deviceType === 'mobile') {
+            // 移动设备，如果有跳转URL则直接跳转
+            if (result.payurl) {
+              // 在移动设备上，我们可以选择直接跳转或显示二维码
+              // 这里我们仍然显示二维码，但可以提供跳转选项
+              setPaymentUrl(result.payurl);
+            } else if (result.qrcode) {
+              setPaymentUrl(result.qrcode);
+            } else {
+              setError('支付信息不完整');
+              toast({
+                variant: 'destructive',
+                title: '支付失败',
+                description: '支付信息不完整，未返回支付URL或二维码',
+              });
+            }
+          } else {
+            // 桌面设备，显示二维码
+            if (result.payurl) {
+              setPaymentUrl(result.payurl);
+            } else if (result.qrcode) {
+              setPaymentUrl(result.qrcode);
+            } else {
+              setError('支付信息不完整');
+              toast({
+                variant: 'destructive',
+                title: '支付失败',
+                description: '支付信息不完整，未返回支付URL或二维码',
+              });
+            }
           }
           setError(null); // 清除错误
         } else {
@@ -119,10 +141,10 @@ export function PaymentModal({
       }
     };
     
-    if (isOpen && user && !paymentUrl && !isPaid) {
+    if (isOpen && user && !paymentUrl && !isPaid && deviceType) {
       createPaymentOrder();
     }
-  }, [isOpen, user, planId, planName, price, billingCycle, paymentUrl, toast, paymentMethod, isPaid]);
+  }, [isOpen, user, planId, planName, price, billingCycle, paymentUrl, toast, paymentMethod, isPaid, deviceType]);
 
   // 轮询支付状态
   useEffect(() => {
@@ -182,6 +204,13 @@ export function PaymentModal({
     setPaymentUrl(null);
     setIsPaid(false);
     setError(null);
+  };
+
+  // 直接跳转到支付页面
+  const handleDirectPay = () => {
+    if (paymentUrl) {
+      window.open(paymentUrl, '_blank');
+    }
   };
 
   return (
@@ -244,7 +273,7 @@ export function PaymentModal({
             <div className="flex flex-col items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
               <p className="mt-2 text-sm text-muted-foreground">
-                正在生成支付二维码...
+                正在生成支付信息...
               </p>
             </div>
           ) : error ? (
@@ -274,11 +303,16 @@ export function PaymentModal({
               </p>
               <Button 
                 className="w-full" 
-                onClick={() => window.open(paymentUrl, '_blank')}
+                onClick={handleDirectPay}
               >
                 <QrCode className="mr-2 h-4 w-4" />
                 在新窗口打开支付页面
               </Button>
+              {deviceType === 'mobile' && (
+                <p className="text-xs text-muted-foreground text-center">
+                  移动设备用户也可以点击上方按钮在新窗口中完成支付
+                </p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">

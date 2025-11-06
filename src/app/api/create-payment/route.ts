@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { PaymentService } from '@/lib/payment/service';
 import { getBaseUrl } from '@/lib/url-utils';
+import { detectDeviceType, isWeChatBrowser, isAlipayBrowser } from '@/lib/device-detection';
 
 // 创建支付服务实例
 // 在实际应用中，这些配置应该从环境变量中获取
@@ -34,9 +35,9 @@ export async function POST(request: NextRequest) {
     
     // 手动解析JSON，确保UTF-8编码
     const body = JSON.parse(rawBody);
-    const { orderId, amount, productName, paymentType } = body;
+    const { orderId, amount, productName, paymentType, userAgent } = body;
     
-    console.log('解析后的请求数据:', { orderId, amount, productName, paymentType });
+    console.log('解析后的请求数据:', { orderId, amount, productName, paymentType, userAgent });
     
     // 检查必需参数
     if (!orderId || !amount || !productName) {
@@ -65,6 +66,32 @@ export async function POST(request: NextRequest) {
     if (clientIp === '::1') {
       clientIp = '127.0.0.1';
     }
+    
+    // 检测设备类型
+    const deviceType = userAgent ? detectDeviceType(userAgent) : 'desktop';
+    const isWeChat = userAgent ? isWeChatBrowser(userAgent) : false;
+    const isAlipayApp = userAgent ? isAlipayBrowser(userAgent) : false;
+    
+    console.log('设备检测结果:', { deviceType, isWeChat, isAlipayApp });
+    
+    // 根据设备类型和浏览器类型决定支付方式和设备参数
+    let deviceParam = 'pc'; // 默认为PC（返回二维码）
+    let finalPaymentType = paymentType || 'alipay'; // 默认支付方式
+    
+    if (deviceType === 'mobile') {
+      // 移动设备
+      if (isWeChat && finalPaymentType === 'wxpay') {
+        // 微信浏览器中使用微信支付
+        deviceParam = 'mobile';
+      } else if (isAlipayApp && finalPaymentType === 'alipay') {
+        // 支付宝浏览器中使用支付宝支付
+        deviceParam = 'mobile';
+      } else {
+        // 其他移动浏览器，仍然返回二维码
+        deviceParam = 'pc';
+      }
+    }
+    // PC设备默认使用pc参数返回二维码
     
     console.log('支付配置检查:', {
       pid: process.env.PAYMENT_PID,
@@ -100,8 +127,8 @@ export async function POST(request: NextRequest) {
       name: productName, // 保持原始字符串，不要强制转换
       money: amount.toFixed(2),
       clientip: clientIp,
-      type: paymentType || 'alipay', // 添加支付方式参数，默认为支付宝
-      device: 'pc', // 添加设备类型参数，确保返回二维码而不是跳转页面
+      type: finalPaymentType, // 使用确定的支付方式
+      device: deviceParam, // 根据设备类型设置
       // 添加timestamp参数，这是SDK中的关键参数
       timestamp: Math.floor(Date.now() / 1000).toString(),
     };
@@ -150,10 +177,12 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // 返回支付信息
+    // 返回支付信息，包括设备类型信息
     return new Response(JSON.stringify({
       ...result,
-      orderId: orderId // 添加订单ID以便调试
+      orderId: orderId, // 添加订单ID以便调试
+      deviceType: deviceType, // 返回设备类型信息
+      deviceParam: deviceParam // 返回设备参数信息
     }), {
       status: 200,
       headers: {
