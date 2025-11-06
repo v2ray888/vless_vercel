@@ -320,40 +320,41 @@ export function PaymentModal({
                   level="L"
                 />
               </div>
-              <p className="text-sm text-muted-foreground text-center">
-                请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描二维码完成支付
-              </p>
               
-              {/* 根据设备类型显示不同的按钮 */}
+              {/* 根据设备类型显示不同的提示和按钮 */}
               {deviceType === 'mobile' ? (
-                <div className="w-full space-y-2">
-                  <Button 
-                    className="w-full" 
-                    onClick={handleDirectPay}
-                  >
-                    <Smartphone className="mr-2 h-4 w-4" />
-                    打开{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
-                  </Button>
-                  {(isWeChatBrowser && paymentMethod === 'wechat') || 
-                   (isAlipayBrowser && paymentMethod === 'alipay') ? (
-                    <Button 
-                      variant="outline" 
-                      className="w-full" 
-                      onClick={handleAutoRedirect}
-                    >
-                      直接跳转到{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
-                    </Button>
-                  ) : null}
-                  <p className="text-xs text-muted-foreground text-center">
-                    移动设备用户建议在新窗口中完成支付
+                <>
+                  <p className="text-sm text-muted-foreground text-center">
+                    请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描二维码完成支付
                   </p>
-                </div>
+                  <div className="w-full space-y-2">
+                    <Button 
+                      className="w-full" 
+                      onClick={handleDirectPay}
+                    >
+                      <Smartphone className="mr-2 h-4 w-4" />
+                      打开{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
+                    </Button>
+                    {(isWeChatBrowser && paymentMethod === 'wechat') || 
+                     (isAlipayBrowser && paymentMethod === 'alipay') ? (
+                      <Button 
+                        variant="outline" 
+                        className="w-full" 
+                        onClick={handleAutoRedirect}
+                      >
+                        直接跳转到{paymentMethod === 'wechat' ? '微信' : '支付宝'}支付
+                      </Button>
+                    ) : null}
+                    <p className="text-xs text-muted-foreground text-center">
+                      移动设备用户建议在新窗口中完成支付
+                    </p>
+                  </div>
+                </>
               ) : (
                 <p className="text-sm text-muted-foreground text-center">
                   请使用{paymentMethod === 'wechat' ? '微信' : '支付宝'}扫描上方二维码完成支付
                 </p>
               )}
-
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-8">
